@@ -53,6 +53,13 @@ func TestRequestHashStable(t *testing.T) {
 	if len(a) != 64 {
 		t.Fatalf("hash length = %d", len(a))
 	}
+
+	// Verify field boundary separation prevents canonicalization/delimiter collisions
+	h1 := RequestHash("A|B", "C", 500)
+	h2 := RequestHash("A", "B|C", 500)
+	if h1 == h2 {
+		t.Fatalf("delimiter collision detected: %s == %s", h1, h2)
+	}
 }
 
 func TestOrderedWalletIDs(t *testing.T) {

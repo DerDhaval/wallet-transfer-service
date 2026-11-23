@@ -26,11 +26,12 @@ func main() {
 }
 
 func run() error {
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})))
+
 	cfg, err := config.Load()
 	if err != nil {
 		return err
 	}
-	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})))
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -71,11 +72,24 @@ func run() error {
 	select {
 	case <-ctx.Done():
 		slog.Info("shutdown requested")
-	case err := <-errCh:
-		return err
+	case err, ok := <-errCh:
+		if ok && err != nil {
+			return err
+		}
 	}
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	return srv.Shutdown(shutdownCtx)
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		slog.Error("graceful shutdown failed", "error", err)
+
+		if closeErr := srv.Close(); closeErr != nil {
+			return errors.Join(err, closeErr)
+		}
+
+		return err
+	}
+
+	return nil
 }

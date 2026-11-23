@@ -7,9 +7,10 @@ import (
 )
 
 // RequestHash identifies the transfer payload that an idempotency key is bound to.
-// The key itself is not part of the hash. v1 is a version prefix so the canonical
-// form can change later without silently matching old rows.
+// The key itself is not part of the hash. v2 is a version prefix with length-prefixed
+// fields to prevent canonicalization ambiguity (delimiter collisions).
 func RequestHash(fromWalletID, toWalletID string, amount int64) string {
-	sum := sha256.Sum256([]byte(fmt.Sprintf("v1|%s|%s|%d", fromWalletID, toWalletID, amount)))
+	payload := fmt.Appendf(nil, "v2|%d:%s|%d:%s|%d", len(fromWalletID), fromWalletID, len(toWalletID), toWalletID, amount)
+	sum := sha256.Sum256(payload)
 	return hex.EncodeToString(sum[:])
 }

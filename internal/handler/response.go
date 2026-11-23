@@ -27,11 +27,13 @@ func writeBytes(w http.ResponseWriter, status int, payload []byte) {
 
 func writeError(w http.ResponseWriter, r *http.Request, err error) {
 	apiErr, ok := domain.AsError(err)
-	if !ok || apiErr.Status >= 500 {
+	if !ok {
 		slog.Error("request failed", "error", err, "path", r.URL.Path, "request_id", middleware.RequestIDFrom(r.Context()))
-		if !ok {
-			apiErr = domain.ErrInternal
-		}
+		apiErr = domain.ErrInternal
+	} else if apiErr.Status >= 500 {
+		slog.Error("request failed", "code", apiErr.Code, "message", apiErr.Message, "path", r.URL.Path, "request_id", middleware.RequestIDFrom(r.Context()))
+	} else {
+		slog.Warn("request rejected", "code", apiErr.Code, "message", apiErr.Message, "path", r.URL.Path, "status", apiErr.Status, "request_id", middleware.RequestIDFrom(r.Context()))
 	}
 	writeJSON(w, apiErr.Status, domain.ErrorBody(apiErr))
 }

@@ -1,21 +1,43 @@
 # AI usage
 
-## Tools used
+## 1. Tool used
 
-Cursor, with the Grok coding agent, was used while building this service.
+**Cursor** (Composer / Grok coding agent in the Cursor IDE).
 
-## How it was used
+## 2. How the tool was generally used
 
-The assignment text was the development prompt. The agent was asked to check the requirements and implement the service, including the design note, PostgreSQL schema, transfer API, idempotency, concurrency control, and tests.
+- Paste or reference the assignment and ask for a gap check against the repo.
+- Ask for design/docs first (`docs/design.md`), then implementation, then tests.
+- Use the agent for boilerplate, migrations, Postman, and refactors; review and run `go test` / `go test -race` locally.
+- Fix env/runtime issues (`.env`, Go toolchain, Postgres credentials) with the agent, but keep design decisions explainable from code + `docs/design.md`.
+- Prefer small, reviewable changes over one blind “build everything” dump.
 
-The design choices in `docs/design.md` are the ones the implementation follows: stored balances plus an immutable double-entry ledger, one database transaction per transfer, a unique idempotency key, and wallet locks taken in sorted id order. Those choices should be explainable from the code and the tests, not only from the chat.
+## 3. Prompts used in this work (session summary)
 
-AI output was compiled and run with `go test -race ./...` against PostgreSQL. Failures from that run were fixed in the code rather than left as generated suggestions.
+Exact chat turns varied; these are the prompts / intents that drove the solution:
 
-## Prompts
+1. Implement the full wallet-transfer assignment (Go + PostgreSQL): idempotent `POST /transfers`, double-entry ledger, concurrency, layered architecture, tests, design/AI docs.
+2. Align project structure with an Orthoheels-style layout (`pkg/database`, router/middleware separate, one-table up/down migrations).
+3. Prefer ~80%+ table-driven tests and shared `tests/testutil` helpers.
+4. Add Postman collection and API test-case docs; then merge into a **single** collection file (no separate environment file).
+5. Make `.env` load on `go run` (godotenv) and use local Postgres (`dhaval` / `5450` / `wallet` on `:5432`).
+6. Quiet terminal logs — drop noisy JSON/access logs and `LOG_LEVEL`.
+7. Improve user-facing API `message` text for all error / payment cases.
+8. Code cleanup: remove duplication, keep the same features, senior-style simplicity.
+9. Audit the finished repo against the assignment text (this check).
 
-The working prompt was the assignment in full, followed by the instruction to check it and implement it properly, including the tests. No separate prompt list was used.
+## 4. Session transcript
 
-## Session transcript
+The full Cursor agent transcript for this project lives in the local Cursor project data (agent transcripts), not as a public paste in git (it can include tool traces and local paths).
 
-The session is the Cursor chat that produced this repository. The raw agent log also contains tool traces and product instructions that are not part of the solution, so it is not copied into the repo. The prompt above, this note, and the resulting code are the record of how the tool was used.
+For review / discussion:
+
+- Use this note + `docs/design.md` + the PR description for **what was decided and why**.
+- Use `git log` and the code for **what shipped**.
+- If reviewers need the raw chat export, it can be emailed or attached separately from Cursor’s agent transcript for this workspace.
+
+## 5. What AI did *not* replace
+
+- Running and interpreting `go test` / race tests against real Postgres.
+- Choosing stored balance + ledger + ordered `FOR UPDATE` (justified in `docs/design.md`).
+- Explaining the PR in a live discussion — that remains the author’s responsibility.

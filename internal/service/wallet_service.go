@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	"github.com/jackc/pgx/v5/pgconn"
 
@@ -38,6 +39,11 @@ func (s *Service) CreateWallet(ctx context.Context, cmd CreateWalletCommand) (do
 		}
 		return domain.Wallet{}, err
 	}
+	slog.Info("wallet created",
+		"wallet_id", wallet.ID,
+		"currency", wallet.Currency,
+		"opening_balance", wallet.OpeningBalance,
+	)
 	return wallet, nil
 }
 

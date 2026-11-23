@@ -71,3 +71,9 @@ func OrderedWalletIDs(a, b string) (string, string) {
 	}
 	return b, a
 }
+
+// ValidTransition is the domain state machine: PENDING -> PROCESSED|FAILED only.
+// Postgres triggers enforce the same rule; this keeps the rule visible in Go.
+func ValidTransition(from, to TransferStatus) bool {
+	return from == StatusPending && (to == StatusProcessed || to == StatusFailed)
+}

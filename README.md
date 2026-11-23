@@ -148,7 +148,7 @@ go run ./cmd/server    # reads .env by itself
 | `DATABASE_URL` | yes |  | Postgres URL (Docker or local). |
 | `HTTP_ADDR` | no | `:8080` | Listen address. |
 
-Startup prints `api listening` and any newly applied migrations. Errors only otherwise — no per-request log spam.
+Logs (info): `api listening`, each HTTP call (`method`/`path`/`status`), wallet/transfer events, and errors. Migrations print when newly applied.
 
 ## Layout
 

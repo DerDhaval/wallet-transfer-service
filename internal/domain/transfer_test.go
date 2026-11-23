@@ -73,3 +73,22 @@ func TestValidateCreateTransferDestinationID(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestValidTransition(t *testing.T) {
+	cases := []struct {
+		from TransferStatus
+		to   TransferStatus
+		want bool
+	}{
+		{StatusPending, StatusProcessed, true},
+		{StatusPending, StatusFailed, true},
+		{StatusProcessed, StatusFailed, false},
+		{StatusFailed, StatusProcessed, false},
+		{StatusProcessed, StatusPending, false},
+	}
+	for _, tc := range cases {
+		if got := ValidTransition(tc.from, tc.to); got != tc.want {
+			t.Fatalf("%s -> %s = %v, want %v", tc.from, tc.to, got, tc.want)
+		}
+	}
+}

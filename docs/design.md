@@ -232,9 +232,14 @@ The stored balance is the value the API reads and the value the debit predicate 
 
 ## 11. Logging and observability
 
-The process stays quiet on success: it prints the listen address and any newly applied migrations. Unexpected failures (5xx / encode errors) go to stderr via `log/slog`. There is no per-request access log.
+Logs are text via `log/slog` at info level:
 
-Request-id middleware lives in `internal/middleware`. Routes are registered in `internal/router`. The database pool and migrations live in `pkg/database`. `GET /health` pings Postgres. The process traps `SIGINT` and `SIGTERM`, stops accepting connections, and closes the pool.
+- startup / shutdown
+- one access line per HTTP request (`method`, `path`, `status`, `duration_ms`, `request_id`)
+- wallet created, transfer processed / failed / replayed
+- client rejections as warn; 5xx as error
+
+Request-id and access-log middleware live in `internal/middleware`. Routes are registered in `internal/router`. The database pool and migrations live in `pkg/database`. `GET /health` pings Postgres. The process traps `SIGINT` and `SIGTERM`, stops accepting connections, and closes the pool.
 
 There are no payment credentials in this service. Do not add them to logs later.
 

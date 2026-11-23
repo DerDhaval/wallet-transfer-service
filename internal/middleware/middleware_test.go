@@ -46,3 +46,16 @@ func TestRequestID(t *testing.T) {
 		})
 	}
 }
+
+func TestAccessLog(t *testing.T) {
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte("ok"))
+	})
+	req := httptest.NewRequest(http.MethodPost, "/transfers", nil)
+	rec := httptest.NewRecorder()
+	middleware.RequestID(middleware.AccessLog(next)).ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d", rec.Code)
+	}
+}

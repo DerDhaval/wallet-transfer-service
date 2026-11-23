@@ -18,5 +18,5 @@ func New(h *handler.Handler) http.Handler {
 	mux.HandleFunc("POST /transfers", h.CreateTransfer)
 	mux.HandleFunc("GET /transfers/{id}", h.GetTransfer)
 
-	return middleware.RequestID(mux)
+	return middleware.RequestID(middleware.AccessLog(mux))
 }

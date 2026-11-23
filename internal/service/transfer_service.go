@@ -5,6 +5,7 @@ import (
 	"crypto/subtle"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math"
 
 	"github.com/jackc/pgx/v5"
@@ -47,6 +48,10 @@ func (s *Service) CreateTransfer(ctx context.Context, cmd CreateTransferCommand)
 				return fmt.Errorf("idempotency key %s is incomplete", cmd.IdempotencyKey)
 			}
 			result = Result{StatusCode: existing.ResponseStatus, Body: existing.ResponseBody, Replayed: true}
+			slog.Info("transfer replayed",
+				"idempotency_key", cmd.IdempotencyKey,
+				"status", existing.ResponseStatus,
+			)
 			return nil
 		}
 
@@ -107,6 +112,14 @@ func (s *Service) executeClaimed(ctx context.Context, tx pgx.Tx, cmd CreateTrans
 	if err := s.store.CompleteIdempotency(ctx, tx, cmd.IdempotencyKey, transfer.ID, 201, string(body)); err != nil {
 		return Result{}, err
 	}
+	slog.Info("transfer processed",
+		"transfer_id", transfer.ID,
+		"from_wallet_id", from.ID,
+		"to_wallet_id", to.ID,
+		"amount", cmd.Amount,
+		"currency", transfer.Currency,
+		"idempotency_key", cmd.IdempotencyKey,
+	)
 	return Result{StatusCode: 201, Body: body}, nil
 }
 
@@ -156,6 +169,14 @@ func (s *Service) finish(ctx context.Context, tx pgx.Tx, key string, transfer do
 	if err := s.store.CompleteIdempotency(ctx, tx, key, transfer.ID, cause.Status, string(body)); err != nil {
 		return Result{}, err
 	}
+	slog.Warn("transfer failed",
+		"transfer_id", transfer.ID,
+		"from_wallet_id", transfer.FromWalletID,
+		"to_wallet_id", transfer.ToWalletID,
+		"amount", transfer.Amount,
+		"code", cause.Code,
+		"idempotency_key", key,
+	)
 	return Result{StatusCode: cause.Status, Body: body}, nil
 }
 

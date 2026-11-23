@@ -11,8 +11,7 @@ import (
 )
 
 func TestCreateWalletTable(t *testing.T) {
-	pool := testutil.RequirePostgres(t)
-	testutil.Clean(t, pool)
+	pool := testutil.FreshPool(t)
 	svc := service.New(repository.New(pool))
 
 	cases := []struct {
@@ -31,7 +30,7 @@ func TestCreateWalletTable(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			wallet, err := svc.CreateWallet(context.Background(), tc.cmd)
 			if tc.code != "" {
-				requireCode(t, err, tc.code)
+				testutil.RequireCode(t, err, tc.code)
 				return
 			}
 			if err != nil {
@@ -51,8 +50,7 @@ func TestCreateWalletTable(t *testing.T) {
 }
 
 func TestGetWalletAndListEntriesTable(t *testing.T) {
-	pool := testutil.RequirePostgres(t)
-	testutil.Clean(t, pool)
+	pool := testutil.FreshPool(t)
 	svc := service.New(repository.New(pool))
 	if _, err := svc.CreateWallet(context.Background(), service.CreateWalletCommand{ID: "svc_a", Currency: "INR", InitialBalance: 50}); err != nil {
 		t.Fatal(err)
@@ -79,7 +77,7 @@ func TestGetWalletAndListEntriesTable(t *testing.T) {
 		t.Run("get/"+tc.name, func(t *testing.T) {
 			wallet, err := svc.GetWallet(context.Background(), tc.id)
 			if tc.code != "" {
-				requireCode(t, err, tc.code)
+				testutil.RequireCode(t, err, tc.code)
 				return
 			}
 			if err != nil || wallet.ID != tc.id {
@@ -108,7 +106,7 @@ func TestGetWalletAndListEntriesTable(t *testing.T) {
 		t.Run("list/"+tc.name, func(t *testing.T) {
 			entries, err := svc.ListWalletEntries(context.Background(), tc.id, tc.limit, tc.offset)
 			if tc.code != "" {
-				requireCode(t, err, tc.code)
+				testutil.RequireCode(t, err, tc.code)
 				return
 			}
 			if err != nil {
@@ -122,8 +120,7 @@ func TestGetWalletAndListEntriesTable(t *testing.T) {
 }
 
 func TestGetTransferTable(t *testing.T) {
-	pool := testutil.RequirePostgres(t)
-	testutil.Clean(t, pool)
+	pool := testutil.FreshPool(t)
 	svc := service.New(repository.New(pool))
 	createWallet(t, svc, "gt_a", "INR", 20)
 	createWallet(t, svc, "gt_b", "INR", 0)
@@ -133,7 +130,7 @@ func TestGetTransferTable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	transferID := transferID(t, result.Body)
+	transferID := testutil.TransferIDFromBody(t, result.Body)
 
 	cases := []struct {
 		name string
@@ -148,7 +145,7 @@ func TestGetTransferTable(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			got, err := svc.GetTransfer(context.Background(), tc.id)
 			if tc.code != "" {
-				requireCode(t, err, tc.code)
+				testutil.RequireCode(t, err, tc.code)
 				return
 			}
 			if err != nil || got.ID != tc.id || got.Status != domain.StatusProcessed {

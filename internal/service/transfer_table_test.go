@@ -10,8 +10,7 @@ import (
 )
 
 func TestCreateTransferValidationTable(t *testing.T) {
-	pool := testutil.RequirePostgres(t)
-	testutil.Clean(t, pool)
+	pool := testutil.FreshPool(t)
 	svc := service.New(repository.New(pool))
 	createWallet(t, svc, "tv_a", "INR", 100)
 	createWallet(t, svc, "tv_b", "INR", 0)
@@ -64,7 +63,7 @@ func TestCreateTransferValidationTable(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			result, err := svc.CreateTransfer(context.Background(), tc.cmd)
 			if tc.code != "" {
-				requireCode(t, err, tc.code)
+				testutil.RequireCode(t, err, tc.code)
 				return
 			}
 			if err != nil {

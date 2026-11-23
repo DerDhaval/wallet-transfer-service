@@ -62,8 +62,7 @@ func TestRejectsMalformedTransferRequests(t *testing.T) {
 }
 
 func TestTransferHTTPFlow(t *testing.T) {
-	pool := testutil.RequirePostgres(t)
-	testutil.Clean(t, pool)
+	pool := testutil.FreshPool(t)
 	svc := service.New(repository.New(pool))
 	server := httptest.NewServer(router.New(handler.New(svc, func(context.Context) error { return nil })))
 	t.Cleanup(server.Close)
@@ -100,7 +99,7 @@ func TestTransferHTTPFlow(t *testing.T) {
 		Status     string `json:"status"`
 		Amount     int64  `json:"amount"`
 	}
-	decode(t, first.Body, &created)
+	testutil.DecodeJSON(t, first.Body, &created)
 	if created.Status != "PROCESSED" || created.Amount != 100 || created.TransferID == "" {
 		t.Fatalf("created = %+v", created)
 	}
@@ -198,13 +197,6 @@ func requireStatus(t *testing.T, res httpResult, status int, code string) {
 	}
 	if payload.Error.Code != code {
 		t.Fatalf("code = %s, want %s", payload.Error.Code, code)
-	}
-}
-
-func decode(t *testing.T, body []byte, dst any) {
-	t.Helper()
-	if err := json.Unmarshal(body, dst); err != nil {
-		t.Fatalf("decode %s: %v", body, err)
 	}
 }
 

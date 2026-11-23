@@ -18,8 +18,7 @@ import (
 )
 
 func TestHandlerTableDriven(t *testing.T) {
-	pool := testutil.RequirePostgres(t)
-	testutil.Clean(t, pool)
+	pool := testutil.FreshPool(t)
 	svc := service.New(repository.New(pool))
 	api := router.New(handler.New(svc, pool.Ping))
 

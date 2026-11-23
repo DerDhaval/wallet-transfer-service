@@ -1,4 +1,5 @@
-// Package testutil prepares a throwaway Postgres database for integration tests.
+// Package testutil holds shared helpers for Postgres integration tests:
+// private DB setup, truncate, balance/ledger assertions, and common JSON checks.
 package testutil
 
 import (

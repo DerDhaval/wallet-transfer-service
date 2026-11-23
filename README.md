@@ -110,6 +110,17 @@ Error body:
 
 A committed business failure also includes the `transfer` object.
 
+## Postman
+
+Manual API cases (requirement + corner cases):
+
+1. Import `postman/Wallet_Transfer_Service.postman_collection.json`
+2. Import `postman/Wallet_Transfer_Service.postman_environment.json`
+3. Select **Wallet Transfer Local**
+4. Start API (`make up && make run`), then **Run collection**
+
+Case matrix: [docs/api-test-cases.md](docs/api-test-cases.md).
+
 ## Tests
 
 Start Postgres, then run the suite with the race detector:
@@ -126,9 +137,16 @@ Tests are mostly table-driven and live next to each package (`*_test.go`): domai
 
 ## Configuration
 
+Config comes from **environment variables** (`internal/config`). Copy `.env.example` to `.env` for local use:
+
+```bash
+cp .env.example .env
+make run    # Makefile loads .env automatically
+```
+
 | Variable | Required | Default | Meaning |
 |---|---|---|---|
-| `DATABASE_URL` | yes |  | Postgres URL. |
+| `DATABASE_URL` | yes |  | Postgres URL (Docker or local). |
 | `HTTP_ADDR` | no | `:8080` | Listen address. |
 | `LOG_LEVEL` | no | `info` | `debug`, `info`, `warn`, or `error`. |
 

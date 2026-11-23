@@ -17,7 +17,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestWalletRepository(t *testing.T) {
-	pool := testutil.RequirePostgres(t)
+	pool := testutil.FreshPool(t)
 	store := repository.New(pool)
 
 	cases := []struct {
@@ -40,7 +40,6 @@ func TestWalletRepository(t *testing.T) {
 		},
 	}
 
-	testutil.Clean(t, pool)
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			w := tc.wallet
@@ -66,7 +65,7 @@ func TestWalletRepository(t *testing.T) {
 
 	t.Run("missing wallet", func(t *testing.T) {
 		_, err := store.GetWallet(context.Background(), "missing")
-		requireCode(t, err, "WALLET_NOT_FOUND")
+		testutil.RequireCode(t, err, "WALLET_NOT_FOUND")
 	})
 
 	t.Run("pool helpers", func(t *testing.T) {
@@ -80,12 +79,11 @@ func TestWalletRepository(t *testing.T) {
 }
 
 func TestTransferAndLedgerRepository(t *testing.T) {
-	pool := testutil.RequirePostgres(t)
-	testutil.Clean(t, pool)
+	pool := testutil.FreshPool(t)
 	store := repository.New(pool)
 
-	insertWallet(t, store, "repo_a", 200)
-	insertWallet(t, store, "repo_b", 0)
+	testutil.InsertWallet(t, pool, "repo_a", "INR", 200)
+	testutil.InsertWallet(t, pool, "repo_b", "INR", 0)
 
 	cases := []struct {
 		name   string
@@ -165,7 +163,7 @@ func TestTransferAndLedgerRepository(t *testing.T) {
 
 	t.Run("missing transfer", func(t *testing.T) {
 		_, err := store.GetTransfer(context.Background(), "trf_missing")
-		requireCode(t, err, "TRANSFER_NOT_FOUND")
+		testutil.RequireCode(t, err, "TRANSFER_NOT_FOUND")
 	})
 
 	t.Run("debit without funds fails inside tx", func(t *testing.T) {
@@ -221,20 +219,4 @@ func TestTransferAndLedgerRepository(t *testing.T) {
 			t.Fatalf("rollback failed: %d -> %d", before.Balance, after.Balance)
 		}
 	})
-}
-
-func insertWallet(t *testing.T, store *repository.Store, id string, balance int64) {
-	t.Helper()
-	w := domain.Wallet{ID: id, Balance: balance, OpeningBalance: balance, Currency: "INR", Status: domain.WalletActive}
-	if err := store.InsertWallet(context.Background(), &w); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func requireCode(t *testing.T, err error, code string) {
-	t.Helper()
-	apiErr, ok := domain.AsError(err)
-	if !ok || apiErr.Code != code {
-		t.Fatalf("err = %v, want %s", err, code)
-	}
 }

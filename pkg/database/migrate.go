@@ -130,6 +130,11 @@ func apply(ctx context.Context, pool *pgxpool.Pool, version, sql string, up bool
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit migration %s: %w", version, err)
 	}
+	action := "migration applied:"
+	if !up {
+		action = "migration rolled back:"
+	}
+	fmt.Println(action, version)
 	return nil
 }
 

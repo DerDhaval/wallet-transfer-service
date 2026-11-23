@@ -36,10 +36,8 @@ func (s *Service) CreateWallet(ctx context.Context, cmd CreateWalletCommand) (do
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 			return domain.Wallet{}, domain.ErrWalletExists
 		}
-		logger(ctx).Error("create wallet failed", "wallet_id", id, "error", err)
 		return domain.Wallet{}, err
 	}
-	logger(ctx).Info("wallet created", "wallet_id", wallet.ID, "currency", wallet.Currency, "opening_balance", wallet.OpeningBalance)
 	return wallet, nil
 }
 
@@ -66,13 +64,13 @@ func (s *Service) ListWalletEntries(ctx context.Context, walletID string, limit,
 
 func normalizePage(limit, offset int) (int, int, error) {
 	if limit == 0 {
-		limit = 20
+		limit = domain.DefaultPageLimit
 	}
-	if limit < 1 || limit > 100 {
+	if limit < 1 || limit > domain.MaxPageLimit {
 		return 0, 0, domain.ErrInvalidRequest.WithMessage("limit must be between 1 and 100")
 	}
 	if offset < 0 {
-		return 0, 0, domain.ErrInvalidRequest.WithMessage("offset must be zero or greater")
+		return 0, 0, domain.ErrInvalidRequest.WithMessage("offset must be 0 or greater")
 	}
 	return limit, offset, nil
 }

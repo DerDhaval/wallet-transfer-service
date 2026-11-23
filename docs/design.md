@@ -93,7 +93,7 @@ Error body:
 {
   "error": {
     "code": "INSUFFICIENT_FUNDS",
-    "message": "source wallet has insufficient funds"
+    "message": "Not enough balance in the sending wallet to complete this payment"
   },
   "transfer": {
     "transferId": "trf_…",
@@ -232,11 +232,9 @@ The stored balance is the value the API reads and the value the debit predicate 
 
 ## 11. Logging and observability
 
-Logs are JSON via `log/slog`.
+The process stays quiet on success: it prints the listen address and any newly applied migrations. Unexpected failures (5xx / encode errors) go to stderr via `log/slog`. There is no per-request access log.
 
-They include transfer id, wallet ids, amount, idempotency key, error code, and request id. They do not include secrets or free-form customer data. Wallet ids and transfer ids are the correlation identifiers.
-
-Request-id and access-log middleware live in `internal/middleware`. Routes are registered in `internal/router`. The database pool and migrations live in `pkg/database`. `GET /health` pings Postgres. The process traps `SIGINT` and `SIGTERM`, stops accepting connections, and closes the pool.
+Request-id middleware lives in `internal/middleware`. Routes are registered in `internal/router`. The database pool and migrations live in `pkg/database`. `GET /health` pings Postgres. The process traps `SIGINT` and `SIGTERM`, stops accepting connections, and closes the pool.
 
 There are no payment credentials in this service. Do not add them to logs later.
 

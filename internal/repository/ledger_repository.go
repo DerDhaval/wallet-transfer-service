@@ -36,7 +36,7 @@ func (s *Store) ListLedgerEntries(ctx context.Context, walletID string, limit, o
 	}
 	defer rows.Close()
 
-	var entries []domain.LedgerEntry
+	entries := make([]domain.LedgerEntry, 0)
 	for rows.Next() {
 		var entry domain.LedgerEntry
 		var entryType string
@@ -44,14 +44,11 @@ func (s *Store) ListLedgerEntries(ctx context.Context, walletID string, limit, o
 			return nil, fmt.Errorf("scan ledger entry: %w", err)
 		}
 		entry.EntryType = domain.EntryType(entryType)
-		entry.CreatedAt = utc(entry.CreatedAt)
+		entry.CreatedAt = entry.CreatedAt.UTC()
 		entries = append(entries, entry)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("list ledger entries: %w", err)
-	}
-	if entries == nil {
-		entries = []domain.LedgerEntry{}
 	}
 	return entries, nil
 }

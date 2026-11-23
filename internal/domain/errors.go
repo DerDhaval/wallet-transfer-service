@@ -37,25 +37,25 @@ func (e *Error) WithMessage(message string) *Error {
 }
 
 var (
-	ErrInvalidRequest = &Error{Status: 400, Code: "INVALID_REQUEST", Message: "request is invalid"}
-	ErrInvalidAmount  = &Error{Status: 400, Code: "INVALID_AMOUNT", Message: "amount must be a positive integer in minor units"}
-	ErrSameWallet     = &Error{Status: 400, Code: "SAME_WALLET", Message: "source and destination wallets must be different"}
+	ErrInvalidRequest = &Error{Status: 400, Code: "INVALID_REQUEST", Message: "Please check your request and try again"}
+	ErrInvalidAmount  = &Error{Status: 400, Code: "INVALID_AMOUNT", Message: "Enter a valid amount as a whole number in the smallest currency unit (for example paise). It must be at least 1"}
+	ErrSameWallet     = &Error{Status: 400, Code: "SAME_WALLET", Message: "You cannot transfer money to the same wallet. Choose a different destination wallet"}
 
-	ErrWalletNotFound   = &Error{Status: 404, Code: "WALLET_NOT_FOUND", Message: "wallet was not found"}
-	ErrTransferNotFound = &Error{Status: 404, Code: "TRANSFER_NOT_FOUND", Message: "transfer was not found"}
+	ErrWalletNotFound   = &Error{Status: 404, Code: "WALLET_NOT_FOUND", Message: "We could not find that wallet. Check the wallet id and try again"}
+	ErrTransferNotFound = &Error{Status: 404, Code: "TRANSFER_NOT_FOUND", Message: "We could not find that transfer. Check the transfer id and try again"}
 
-	ErrIdempotencyConflict = &Error{Status: 409, Code: "IDEMPOTENCY_CONFLICT", Message: "idempotency key was already used with a different request"}
-	ErrWalletExists        = &Error{Status: 409, Code: "WALLET_EXISTS", Message: "wallet already exists"}
+	ErrIdempotencyConflict = &Error{Status: 409, Code: "IDEMPOTENCY_CONFLICT", Message: "This idempotency key was already used for a different payment. Use a new key to send a new transfer"}
+	ErrWalletExists        = &Error{Status: 409, Code: "WALLET_EXISTS", Message: "A wallet with this id already exists. Use a different wallet id"}
 
-	ErrInsufficientFunds = &Error{Status: 422, Code: "INSUFFICIENT_FUNDS", Message: "source wallet has insufficient funds"}
-	ErrWalletNotActive   = &Error{Status: 422, Code: "WALLET_NOT_ACTIVE", Message: "wallet is not active"}
-	ErrCurrencyMismatch  = &Error{Status: 422, Code: "CURRENCY_MISMATCH", Message: "wallets must use the same currency"}
-	ErrAmountOverflow    = &Error{Status: 422, Code: "AMOUNT_OVERFLOW", Message: "destination wallet balance would overflow"}
+	ErrInsufficientFunds = &Error{Status: 422, Code: "INSUFFICIENT_FUNDS", Message: "Not enough balance in the sending wallet to complete this payment"}
+	ErrWalletNotActive   = &Error{Status: 422, Code: "WALLET_NOT_ACTIVE", Message: "This wallet is not active, so money cannot be sent or received"}
+	ErrCurrencyMismatch  = &Error{Status: 422, Code: "CURRENCY_MISMATCH", Message: "Both wallets must use the same currency to transfer money"}
+	ErrAmountOverflow    = &Error{Status: 422, Code: "AMOUNT_OVERFLOW", Message: "This payment would push the receiving wallet balance past the allowed maximum"}
 
-	ErrUnsupportedMedia = &Error{Status: 415, Code: "UNSUPPORTED_MEDIA_TYPE", Message: "Content-Type must be application/json"}
+	ErrUnsupportedMedia = &Error{Status: 415, Code: "UNSUPPORTED_MEDIA_TYPE", Message: "Send the request as JSON with Content-Type: application/json"}
 
-	ErrTemporarilyUnavailable = &Error{Status: 503, Code: "TEMPORARILY_UNAVAILABLE", Message: "the request could not be completed, please retry"}
-	ErrInternal               = &Error{Status: 500, Code: "INTERNAL_ERROR", Message: "an unexpected error occurred"}
+	ErrTemporarilyUnavailable = &Error{Status: 503, Code: "TEMPORARILY_UNAVAILABLE", Message: "The payment could not be completed right now. Please retry in a moment"}
+	ErrInternal               = &Error{Status: 500, Code: "INTERNAL_ERROR", Message: "Something went wrong on our side. Please try again"}
 )
 
 // AsError reports whether err is or wraps a domain error.
@@ -65,4 +65,12 @@ func AsError(err error) (*Error, bool) {
 		return target, true
 	}
 	return nil, false
+}
+
+func WalletNotFound(id string) *Error {
+	return ErrWalletNotFound.WithMessage(`Wallet "` + id + `" was not found. Check the wallet id and try again`)
+}
+
+func TransferNotFound(id string) *Error {
+	return ErrTransferNotFound.WithMessage(`Transfer "` + id + `" was not found. Check the transfer id and try again`)
 }

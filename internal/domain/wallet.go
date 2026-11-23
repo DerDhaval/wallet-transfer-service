@@ -34,13 +34,13 @@ func ValidateNewWallet(id string, currency string, openingBalance int64, emptyID
 		}
 	}
 	if !currencyPattern.MatchString(currency) {
-		return ErrInvalidRequest.WithMessage("currency must be a 3-letter uppercase ISO code")
+		return ErrInvalidRequest.WithMessage("Currency must be a 3-letter uppercase code such as INR or USD")
 	}
 	if openingBalance < 0 {
-		return ErrInvalidAmount.WithMessage("initial balance cannot be negative")
+		return ErrInvalidAmount.WithMessage("Opening balance cannot be negative")
 	}
 	if openingBalance > MaxOpeningBalance {
-		return ErrInvalidAmount.WithMessage("initial balance exceeds the maximum")
+		return ErrInvalidAmount.WithMessage("Opening balance is too large for this wallet")
 	}
 	return nil
 }

@@ -2,14 +2,9 @@
 
 Use with the Postman collection in `postman/`.
 
-**Prereq:** API running (`make up && make run`).
+**Prereq:** API running (`go run ./cmd/server`).
 
-Import:
-
-1. `postman/Wallet_Transfer_Service.postman_collection.json`
-2. `postman/Wallet_Transfer_Service.postman_environment.json`
-3. Select env **Wallet Transfer Local**
-4. Run folder **00 — Setup** first, then the rest (or Run collection)
+Import the single file `postman/Wallet_Transfer_Service.postman_collection.json`, then run folder **00 — Setup** first (or Run collection). Variables live on the collection — no separate environment file.
 
 Amounts are integer **minor units**.
 

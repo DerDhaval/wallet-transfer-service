@@ -9,4 +9,7 @@ const (
 
 	// MaxOpeningBalance is the largest opening balance accepted by the API.
 	MaxOpeningBalance int64 = 1_000_000_000_000_000
+
+	DefaultPageLimit = 20
+	MaxPageLimit     = 100
 )

@@ -19,8 +19,19 @@ func scanWallet(row pgx.Row) (domain.Wallet, error) {
 		return domain.Wallet{}, err
 	}
 	w.Status = domain.WalletStatus(status)
-	w.CreatedAt = utc(w.CreatedAt)
-	w.UpdatedAt = utc(w.UpdatedAt)
+	w.CreatedAt = w.CreatedAt.UTC()
+	w.UpdatedAt = w.UpdatedAt.UTC()
+	return w, nil
+}
+
+func loadWallet(row pgx.Row, id string) (domain.Wallet, error) {
+	w, err := scanWallet(row)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.Wallet{}, domain.WalletNotFound(id)
+	}
+	if err != nil {
+		return domain.Wallet{}, err
+	}
 	return w, nil
 }
 
@@ -40,28 +51,20 @@ func (s *Store) InsertWallet(ctx context.Context, w *domain.Wallet) error {
 }
 
 func (s *Store) GetWallet(ctx context.Context, id string) (domain.Wallet, error) {
-	row := s.pool.QueryRow(ctx, `SELECT `+walletColumns+` FROM wallets WHERE id = $1`, id)
-	w, err := scanWallet(row)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.Wallet{}, domain.ErrWalletNotFound.WithMessage("wallet " + id + " was not found")
-	}
-	if err != nil {
+	w, err := loadWallet(s.pool.QueryRow(ctx, `SELECT `+walletColumns+` FROM wallets WHERE id = $1`, id), id)
+	if err != nil && !errors.Is(err, domain.ErrWalletNotFound) {
 		return domain.Wallet{}, fmt.Errorf("get wallet: %w", err)
 	}
-	return w, nil
+	return w, err
 }
 
 // GetWalletForUpdate locks the wallet row. Callers must lock multiple wallets via domain.OrderedWalletIDs.
 func (s *Store) GetWalletForUpdate(ctx context.Context, tx pgx.Tx, id string) (domain.Wallet, error) {
-	row := tx.QueryRow(ctx, `SELECT `+walletColumns+` FROM wallets WHERE id = $1 FOR UPDATE`, id)
-	w, err := scanWallet(row)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.Wallet{}, domain.ErrWalletNotFound.WithMessage("wallet " + id + " was not found")
-	}
-	if err != nil {
+	w, err := loadWallet(tx.QueryRow(ctx, `SELECT `+walletColumns+` FROM wallets WHERE id = $1 FOR UPDATE`, id), id)
+	if err != nil && !errors.Is(err, domain.ErrWalletNotFound) {
 		return domain.Wallet{}, fmt.Errorf("lock wallet: %w", err)
 	}
-	return w, nil
+	return w, err
 }
 
 func (s *Store) DebitWallet(ctx context.Context, tx pgx.Tx, id string, amount int64) error {

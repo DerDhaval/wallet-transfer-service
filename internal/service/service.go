@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"log/slog"
 
 	"wallet-transfer-service/internal/repository"
 )
@@ -28,8 +27,4 @@ func New(store *repository.Store, opts ...Option) *Service {
 		opt(s)
 	}
 	return s
-}
-
-func logger(context.Context) *slog.Logger {
-	return slog.Default()
 }

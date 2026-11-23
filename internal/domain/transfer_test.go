@@ -66,41 +66,10 @@ func TestOrderedWalletIDs(t *testing.T) {
 	}
 }
 
-func TestValidTransition(t *testing.T) {
-	if !ValidTransition(StatusPending, StatusProcessed) || !ValidTransition(StatusPending, StatusFailed) {
-		t.Fatal("pending must be able to finish")
-	}
-	if ValidTransition(StatusProcessed, StatusFailed) || ValidTransition(StatusFailed, StatusProcessed) || ValidTransition(StatusProcessed, StatusPending) {
-		t.Fatal("terminal status must stay terminal")
-	}
-}
-
 func TestValidateCreateTransferDestinationID(t *testing.T) {
 	err := ValidateCreateTransfer("k", "wallet_1", "bad id", 10)
 	apiErr, ok := AsError(err)
 	if !ok || apiErr.Code != "INVALID_REQUEST" {
 		t.Fatalf("err = %v", err)
-	}
-}
-
-func TestValidTransitionTable(t *testing.T) {
-	cases := []struct {
-		name string
-		from TransferStatus
-		to   TransferStatus
-		want bool
-	}{
-		{name: "pending to processed", from: StatusPending, to: StatusProcessed, want: true},
-		{name: "pending to failed", from: StatusPending, to: StatusFailed, want: true},
-		{name: "processed to failed", from: StatusProcessed, to: StatusFailed, want: false},
-		{name: "failed to processed", from: StatusFailed, to: StatusProcessed, want: false},
-		{name: "processed to pending", from: StatusProcessed, to: StatusPending, want: false},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			if got := ValidTransition(tc.from, tc.to); got != tc.want {
-				t.Fatalf("got %v, want %v", got, tc.want)
-			}
-		})
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 
+	"wallet-transfer-service/internal/domain"
 	"wallet-transfer-service/internal/service"
 )
 
@@ -33,10 +34,7 @@ func (h *Handler) CreateTransfer(w http.ResponseWriter, r *http.Request) {
 	if result.Replayed {
 		w.Header().Set("X-Idempotent-Replay", "true")
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", "no-store")
-	w.WriteHeader(result.StatusCode)
-	_, _ = w.Write(result.Body)
+	writeBytes(w, result.StatusCode, result.Body)
 }
 
 func (h *Handler) GetTransfer(w http.ResponseWriter, r *http.Request) {
@@ -45,5 +43,5 @@ func (h *Handler) GetTransfer(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, transferResponseFrom(transfer))
+	writeJSON(w, http.StatusOK, domain.ViewTransfer(transfer))
 }

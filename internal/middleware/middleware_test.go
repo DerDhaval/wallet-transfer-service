@@ -46,29 +46,3 @@ func TestRequestID(t *testing.T) {
 		})
 	}
 }
-
-func TestAccessLogAndStatusRecorder(t *testing.T) {
-	cases := []struct {
-		name   string
-		status int
-	}{
-		{name: "explicit status", status: http.StatusCreated},
-		{name: "default ok", status: http.StatusOK},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if tc.status != http.StatusOK {
-					w.WriteHeader(tc.status)
-				}
-				_, _ = w.Write([]byte("ok"))
-			})
-			req := httptest.NewRequest(http.MethodGet, "/x", nil)
-			rec := httptest.NewRecorder()
-			middleware.RequestID(middleware.AccessLog(next)).ServeHTTP(rec, req)
-			if rec.Code != tc.status {
-				t.Fatalf("status = %d, want %d", rec.Code, tc.status)
-			}
-		})
-	}
-}

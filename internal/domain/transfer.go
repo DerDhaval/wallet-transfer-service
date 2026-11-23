@@ -32,7 +32,7 @@ var (
 
 func ValidateWalletID(id string) error {
 	if !walletIDPattern.MatchString(id) {
-		return ErrInvalidRequest.WithMessage("wallet id must be 1-64 characters of letters, digits, underscore, or hyphen")
+		return ErrInvalidRequest.WithMessage("Wallet id is invalid. Use 1–64 letters, digits, underscore, or hyphen")
 	}
 	return nil
 }
@@ -41,19 +41,24 @@ func ValidateWalletID(id string) error {
 // Failures here do not consume the idempotency key.
 func ValidateCreateTransfer(idempotencyKey, fromWalletID, toWalletID string, amount int64) error {
 	if !idempotencyKeyPattern.MatchString(idempotencyKey) {
-		return ErrInvalidRequest.WithMessage("idempotencyKey must be 1-255 characters of letters, digits, or . _ : -")
+		return ErrInvalidRequest.WithMessage("Idempotency key is invalid. Use 1–255 letters, digits, or . _ : -")
 	}
 	if err := ValidateWalletID(fromWalletID); err != nil {
-		return ErrInvalidRequest.WithMessage("fromWalletId must be 1-64 characters of letters, digits, underscore, or hyphen")
+		return ErrInvalidRequest.WithMessage("fromWalletId is invalid. Use 1–64 letters, digits, underscore, or hyphen")
 	}
 	if err := ValidateWalletID(toWalletID); err != nil {
-		return ErrInvalidRequest.WithMessage("toWalletId must be 1-64 characters of letters, digits, underscore, or hyphen")
+		return ErrInvalidRequest.WithMessage("toWalletId is invalid. Use 1–64 letters, digits, underscore, or hyphen")
 	}
 	if fromWalletID == toWalletID {
 		return ErrSameWallet
 	}
-	if amount <= 0 || amount > MaxTransferAmount {
-		return ErrInvalidAmount
+	switch {
+	case amount == 0:
+		return ErrInvalidAmount.WithMessage("Transfer amount must be greater than zero")
+	case amount < 0:
+		return ErrInvalidAmount.WithMessage("Transfer amount cannot be negative")
+	case amount > MaxTransferAmount:
+		return ErrInvalidAmount.WithMessage("Transfer amount is too large. Maximum allowed is 1000000000000")
 	}
 	return nil
 }
@@ -65,9 +70,4 @@ func OrderedWalletIDs(a, b string) (string, string) {
 		return a, b
 	}
 	return b, a
-}
-
-// ValidTransition reports whether the transfer state machine allows the change.
-func ValidTransition(from, to TransferStatus) bool {
-	return from == StatusPending && (to == StatusProcessed || to == StatusFailed)
 }

@@ -22,8 +22,8 @@ func scanTransfer(row pgx.Row) (domain.Transfer, error) {
 		return domain.Transfer{}, err
 	}
 	t.Status = domain.TransferStatus(status)
-	t.CreatedAt = utc(t.CreatedAt)
-	t.UpdatedAt = utc(t.UpdatedAt)
+	t.CreatedAt = t.CreatedAt.UTC()
+	t.UpdatedAt = t.UpdatedAt.UTC()
 	return t, nil
 }
 
@@ -43,44 +43,37 @@ func (s *Store) InsertPendingTransfer(ctx context.Context, tx pgx.Tx, t *domain.
 }
 
 func (s *Store) MarkTransferProcessed(ctx context.Context, tx pgx.Tx, t *domain.Transfer) error {
-	row := tx.QueryRow(ctx, `
+	return s.finalizeTransfer(ctx, tx, t, `
 		UPDATE transfers
 		SET status = 'PROCESSED', failure_reason = NULL, updated_at = now()
 		WHERE id = $1 AND status = 'PENDING'
 		RETURNING `+transferColumns, t.ID)
-	scanned, err := scanTransfer(row)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return fmt.Errorf("mark transfer %s processed: status was not pending", t.ID)
-	}
-	if err != nil {
-		return fmt.Errorf("mark transfer processed: %w", err)
-	}
-	*t = scanned
-	return nil
 }
 
 func (s *Store) MarkTransferFailed(ctx context.Context, tx pgx.Tx, t *domain.Transfer, reason string) error {
-	row := tx.QueryRow(ctx, `
+	return s.finalizeTransfer(ctx, tx, t, `
 		UPDATE transfers
 		SET status = 'FAILED', failure_reason = $2, updated_at = now()
 		WHERE id = $1 AND status = 'PENDING'
 		RETURNING `+transferColumns, t.ID, reason)
-	scanned, err := scanTransfer(row)
+}
+
+func (s *Store) finalizeTransfer(ctx context.Context, tx pgx.Tx, t *domain.Transfer, query string, args ...any) error {
+	scanned, err := scanTransfer(tx.QueryRow(ctx, query, args...))
 	if errors.Is(err, pgx.ErrNoRows) {
-		return fmt.Errorf("mark transfer %s failed: status was not pending", t.ID)
+		return fmt.Errorf("finalize transfer %s: status was not pending", t.ID)
 	}
 	if err != nil {
-		return fmt.Errorf("mark transfer failed: %w", err)
+		return fmt.Errorf("finalize transfer: %w", err)
 	}
 	*t = scanned
 	return nil
 }
 
 func (s *Store) GetTransfer(ctx context.Context, id string) (domain.Transfer, error) {
-	row := s.pool.QueryRow(ctx, `SELECT `+transferColumns+` FROM transfers WHERE id = $1`, id)
-	t, err := scanTransfer(row)
+	t, err := scanTransfer(s.pool.QueryRow(ctx, `SELECT `+transferColumns+` FROM transfers WHERE id = $1`, id))
 	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.Transfer{}, domain.ErrTransferNotFound
+		return domain.Transfer{}, domain.TransferNotFound(id)
 	}
 	if err != nil {
 		return domain.Transfer{}, fmt.Errorf("get transfer: %w", err)

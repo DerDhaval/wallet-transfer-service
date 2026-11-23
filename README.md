@@ -105,7 +105,7 @@ Sending that request again returns the same body and status, with `X-Idempotent-
 Error body:
 
 ```json
-{"error":{"code":"INSUFFICIENT_FUNDS","message":"source wallet has insufficient funds"}}
+{"error":{"code":"INSUFFICIENT_FUNDS","message":"Not enough balance in the sending wallet to complete this payment"}}
 ```
 
 A committed business failure also includes the `transfer` object.
@@ -114,10 +114,8 @@ A committed business failure also includes the `transfer` object.
 
 Manual API cases (requirement + corner cases):
 
-1. Import `postman/Wallet_Transfer_Service.postman_collection.json`
-2. Import `postman/Wallet_Transfer_Service.postman_environment.json`
-3. Select **Wallet Transfer Local**
-4. Start API (`make up && make run`), then **Run collection**
+1. Import `postman/Wallet_Transfer_Service.postman_collection.json` (one file only)
+2. Start API (`go run ./cmd/server`), then **Run collection**
 
 Case matrix: [docs/api-test-cases.md](docs/api-test-cases.md).
 
@@ -137,20 +135,20 @@ Tests are mostly table-driven and live next to each package (`*_test.go`): domai
 
 ## Configuration
 
-Config comes from **environment variables** (`internal/config`). Copy `.env.example` to `.env` for local use:
+Config comes from **environment variables** (`internal/config`). The app also loads `.env` automatically on startup.
 
 ```bash
-cp .env.example .env
-make run    # Makefile loads .env automatically
+cp .env.example .env   # once
+go run ./cmd/server    # reads .env by itself
+# or: make run
 ```
 
 | Variable | Required | Default | Meaning |
 |---|---|---|---|
 | `DATABASE_URL` | yes |  | Postgres URL (Docker or local). |
 | `HTTP_ADDR` | no | `:8080` | Listen address. |
-| `LOG_LEVEL` | no | `info` | `debug`, `info`, `warn`, or `error`. |
 
-Logs are JSON. They include transfer ids, wallet ids, amounts, idempotency keys, and request ids. Do not add credentials to them.
+Startup prints `api listening` and any newly applied migrations. Errors only otherwise — no per-request log spam.
 
 ## Layout
 
@@ -158,7 +156,7 @@ Logs are JSON. They include transfer ids, wallet ids, amounts, idempotency keys,
 cmd/server/main.go              process entrypoint
 internal/
   router/                       HTTP route registration
-  middleware/                   request id + access log
+  middleware/                   request id
   handler/                      HTTP request/response adapters
   service/                      business logic and idempotency
   repository/                   SQL, row locks, transactions

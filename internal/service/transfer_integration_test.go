@@ -413,11 +413,10 @@ func TestInsufficientFundsIsFinalForTheKeyAndLeavesNoLedger(t *testing.T) {
 	testutil.AssertBalanced(t, pool)
 }
 
-func TestInactiveWalletAndCurrencyMismatchDoNotMoveMoney(t *testing.T) {
+func TestInactiveWalletDoesNotMoveMoney(t *testing.T) {
 	svc, pool := setupService(t)
 	createWallet(t, svc, "wallet_1", "INR", 80)
 	createWallet(t, svc, "wallet_2", "INR", 10)
-	createWallet(t, svc, "wallet_3", "USD", 10)
 	if _, err := pool.Exec(context.Background(), `UPDATE wallets SET status = 'FROZEN' WHERE id = 'wallet_2'`); err != nil {
 		t.Fatal(err)
 	}
@@ -428,16 +427,158 @@ func TestInactiveWalletAndCurrencyMismatchDoNotMoveMoney(t *testing.T) {
 	if err != nil || frozen.StatusCode != 422 {
 		t.Fatalf("frozen: %v %+v", err, frozen)
 	}
-	mismatch, err := svc.CreateTransfer(context.Background(), service.CreateTransferCommand{
-		IdempotencyKey: "fx", FromWalletID: "wallet_1", ToWalletID: "wallet_3", Amount: 5,
-	})
-	if err != nil || mismatch.StatusCode != 422 {
-		t.Fatalf("currency: %v %+v", err, mismatch)
-	}
 	testutil.AssertBalance(t, pool, "wallet_1", 80)
 	testutil.AssertBalance(t, pool, "wallet_2", 10)
-	testutil.AssertBalance(t, pool, "wallet_3", 10)
 	testutil.AssertLedgerCount(t, pool, 0)
+	testutil.AssertBalanced(t, pool)
+}
+
+func TestCrossCurrencyTransferConvertsAndPostsBothEntries(t *testing.T) {
+	svc, pool := setupService(t)
+	createWallet(t, svc, "wallet_inr", "INR", 10_000) // 100.00 INR
+	createWallet(t, svc, "wallet_usd", "USD", 0)
+
+	cmd := service.CreateTransferCommand{IdempotencyKey: "fx-1", FromWalletID: "wallet_inr", ToWalletID: "wallet_usd", Amount: 10_000}
+	result, err := svc.CreateTransfer(context.Background(), cmd)
+	if err != nil || result.StatusCode != 201 {
+		t.Fatalf("cross-currency transfer: %v %+v", err, result)
+	}
+
+	var body struct {
+		TransferID   string `json:"transferId"`
+		Amount       int64  `json:"amount"`
+		Currency     string `json:"currency"`
+		ToAmount     int64  `json:"toAmount"`
+		ToCurrency   string `json:"toCurrency"`
+		ExchangeRate string `json:"exchangeRate"`
+		Status       string `json:"status"`
+	}
+	testutil.DecodeJSON(t, result.Body, &body)
+	if body.Amount != 10_000 || body.Currency != "INR" || body.ToAmount != 112 || body.ToCurrency != "USD" ||
+		body.ExchangeRate != "0.011299435028" || body.Status != "PROCESSED" {
+		t.Fatalf("body = %+v", body)
+	}
+
+	testutil.AssertBalance(t, pool, "wallet_inr", 0)
+	testutil.AssertBalance(t, pool, "wallet_usd", 112)
+	testutil.AssertLedgerCount(t, pool, 2)
+	testutil.AssertLedgerAmounts(t, pool, body.TransferID, "wallet_inr", 10_000, "wallet_usd", 112)
+	testutil.AssertBalanced(t, pool)
+
+	entries, err := svc.ListWalletEntries(context.Background(), "wallet_usd", 20, 0)
+	if err != nil || len(entries) != 1 || entries[0].Currency != "USD" || entries[0].Amount != 112 {
+		t.Fatalf("usd entries = %+v err = %v", entries, err)
+	}
+
+	replay, err := svc.CreateTransfer(context.Background(), cmd)
+	if err != nil || !replay.Replayed || !bytes.Equal(replay.Body, result.Body) {
+		t.Fatalf("replay: %v %+v", err, replay)
+	}
+	testutil.AssertBalance(t, pool, "wallet_usd", 112)
+	testutil.AssertLedgerCount(t, pool, 2)
+
+	stored, err := svc.GetTransfer(context.Background(), body.TransferID)
+	if err != nil || stored.ToAmount != 112 || stored.ToCurrency != "USD" || stored.ExchangeRate != "0.011299435028" {
+		t.Fatalf("stored = %+v err = %v", stored, err)
+	}
+}
+
+func TestCrossCurrencyFailuresDoNotMoveMoney(t *testing.T) {
+	svc, pool := setupService(t)
+	createWallet(t, svc, "wallet_inr", "INR", 1_000)
+	createWallet(t, svc, "wallet_usd", "USD", 0)
+	createWallet(t, svc, "wallet_vnd", "VND", 5)
+	createWallet(t, svc, "wallet_kwd", "KWD", 0)
+	if _, err := pool.Exec(context.Background(), `
+		INSERT INTO wallets (id, balance, opening_balance, currency, status)
+		VALUES ('wallet_old', 50, 50, 'XYZ', 'ACTIVE')`); err != nil {
+		t.Fatal(err)
+	}
+
+	cases := []struct {
+		name   string
+		key    string
+		from   string
+		to     string
+		amount int64
+		code   string
+	}{
+		{name: "insufficient funds after conversion check", key: "fx-poor", from: "wallet_inr", to: "wallet_usd", amount: 5_000, code: "INSUFFICIENT_FUNDS"},
+		{name: "too small to convert", key: "fx-small", from: "wallet_vnd", to: "wallet_kwd", amount: 1, code: "AMOUNT_TOO_SMALL"},
+		{name: "unsupported legacy currency", key: "fx-xyz", from: "wallet_old", to: "wallet_usd", amount: 10, code: "CURRENCY_NOT_SUPPORTED"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cmd := service.CreateTransferCommand{IdempotencyKey: tc.key, FromWalletID: tc.from, ToWalletID: tc.to, Amount: tc.amount}
+			result, err := svc.CreateTransfer(context.Background(), cmd)
+			if err != nil || result.StatusCode != 422 {
+				t.Fatalf("%v %+v", err, result)
+			}
+			var body struct {
+				Error struct {
+					Code string `json:"code"`
+				} `json:"error"`
+				Transfer struct {
+					Status        string `json:"status"`
+					FailureReason string `json:"failureReason"`
+				} `json:"transfer"`
+			}
+			testutil.DecodeJSON(t, result.Body, &body)
+			if body.Error.Code != tc.code || body.Transfer.Status != "FAILED" || body.Transfer.FailureReason != tc.code {
+				t.Fatalf("body = %s", result.Body)
+			}
+			replay, err := svc.CreateTransfer(context.Background(), cmd)
+			if err != nil || !replay.Replayed || !bytes.Equal(replay.Body, result.Body) {
+				t.Fatalf("replay: %v %+v", err, replay)
+			}
+		})
+	}
+	testutil.AssertBalance(t, pool, "wallet_inr", 1_000)
+	testutil.AssertBalance(t, pool, "wallet_usd", 0)
+	testutil.AssertBalance(t, pool, "wallet_vnd", 5)
+	testutil.AssertBalance(t, pool, "wallet_old", 50)
+	testutil.AssertLedgerCount(t, pool, 0)
+	testutil.AssertBalanced(t, pool)
+}
+
+func TestConcurrentCrossCurrencyTransfersStayBalanced(t *testing.T) {
+	svc, pool := setupService(t)
+	createWallet(t, svc, "wallet_usd", "USD", 1_000) // 10.00 USD
+	createWallet(t, svc, "wallet_eur", "EUR", 0)
+	createWallet(t, svc, "wallet_jpy", "JPY", 0)
+
+	const n = 30
+	var wg sync.WaitGroup
+	start := make(chan struct{})
+	errs := make([]error, n)
+	wg.Add(n)
+	for i := 0; i < n; i++ {
+		go func(i int) {
+			defer wg.Done()
+			<-start
+			to := "wallet_eur"
+			if i%2 == 1 {
+				to = "wallet_jpy"
+			}
+			_, errs[i] = svc.CreateTransfer(context.Background(), service.CreateTransferCommand{
+				IdempotencyKey: fmt.Sprintf("fx-race-%d", i), FromWalletID: "wallet_usd", ToWalletID: to, Amount: 100,
+			})
+		}(i)
+	}
+	close(start)
+	wg.Wait()
+	for i, err := range errs {
+		if err != nil {
+			t.Fatalf("request %d: %v", i, err)
+		}
+	}
+
+	// Ten transfers of 1.00 USD fit in the 10.00 USD wallet; the rest must fail, never overdraw.
+	if got := testutil.Scalar(t, pool, `SELECT count(*) FROM transfers WHERE status = 'PROCESSED'`); got != 10 {
+		t.Fatalf("processed = %d, want 10", got)
+	}
+	testutil.AssertBalance(t, pool, "wallet_usd", 0)
+	testutil.AssertLedgerCount(t, pool, 20)
 	testutil.AssertBalanced(t, pool)
 }
 
@@ -508,8 +649,8 @@ func TestDatabaseGuardsRejectPartialFinancialWrites(t *testing.T) {
 	transferID := testutil.TransferIDFromBody(t, result.Body)
 
 	_, err = pool.Exec(context.Background(), `
-		INSERT INTO transfers (id, from_wallet_id, to_wallet_id, amount, currency, status)
-		VALUES ('trf_pending', 'wallet_1', 'wallet_2', 1, 'INR', 'PENDING')`)
+		INSERT INTO transfers (id, from_wallet_id, to_wallet_id, amount, currency, to_currency, status)
+		VALUES ('trf_pending', 'wallet_1', 'wallet_2', 1, 'INR', 'INR', 'PENDING')`)
 	if err == nil || !bytes.Contains([]byte(err.Error()), []byte("PENDING")) {
 		t.Fatalf("pending commit err = %v", err)
 	}

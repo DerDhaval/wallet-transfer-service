@@ -2,20 +2,58 @@
   "info": {
     "_postman_id": "wts-collection-001",
     "name": "Wallet Transfer Service",
-    "description": "Requirement + corner-case API tests for the wallet transfer assignment.\n\nRun order: 00 Setup → 01 Happy path → 02 Idempotency → 03 Validation → 04 Business failures → 05 Lookups.\n\nImport this one file only. Variables live on the collection.\nStart API with: go run ./cmd/server",
+    "description": "Requirement + corner-case API tests for the wallet transfer assignment.\n\nRun order: 00 Setup → 01 Happy path → 02 Idempotency → 03 Validation → 04 Business failures → 05 Lookups → 06 Currencies and conversion.\n\nImport this one file only. Variables live on the collection.\nStart API with: go run ./cmd/server",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "baseUrl", "value": "http://127.0.0.1:8080" },
-    { "key": "runId", "value": "" },
-    { "key": "walletA", "value": "" },
-    { "key": "walletB", "value": "" },
-    { "key": "walletPoor", "value": "" },
-    { "key": "transferId", "value": "" },
-    { "key": "idempotencyKey", "value": "" },
-    { "key": "idempotencyFailKey", "value": "" },
-    { "key": "transferBody", "value": "" },
-    { "key": "failedTransferBody", "value": "" }
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:8080"
+    },
+    {
+      "key": "runId",
+      "value": ""
+    },
+    {
+      "key": "walletA",
+      "value": ""
+    },
+    {
+      "key": "walletB",
+      "value": ""
+    },
+    {
+      "key": "walletPoor",
+      "value": ""
+    },
+    {
+      "key": "transferId",
+      "value": ""
+    },
+    {
+      "key": "idempotencyKey",
+      "value": ""
+    },
+    {
+      "key": "idempotencyFailKey",
+      "value": ""
+    },
+    {
+      "key": "transferBody",
+      "value": ""
+    },
+    {
+      "key": "failedTransferBody",
+      "value": ""
+    },
+    {
+      "key": "walletUsd",
+      "value": ""
+    },
+    {
+      "key": "fxKey",
+      "value": ""
+    }
   ],
   "item": [
     {
@@ -97,7 +135,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"id\": \"{{walletA}}\",\n  \"currency\": \"INR\",\n  \"initialBalance\": 50000\n}"
@@ -125,7 +168,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"id\": \"{{walletB}}\",\n  \"currency\": \"INR\",\n  \"initialBalance\": 0\n}"
@@ -149,7 +197,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"id\": \"{{walletPoor}}\",\n  \"currency\": \"INR\",\n  \"initialBalance\": 50\n}"
@@ -191,7 +244,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"idempotencyKey\": \"{{idempotencyKey}}\",\n  \"fromWalletId\": \"{{walletA}}\",\n  \"toWalletId\": \"{{walletB}}\",\n  \"amount\": 100\n}"
@@ -350,7 +408,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"idempotencyKey\": \"{{idempotencyKey}}\",\n  \"fromWalletId\": \"{{walletA}}\",\n  \"toWalletId\": \"{{walletB}}\",\n  \"amount\": 100\n}"
@@ -398,7 +461,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"idempotencyKey\": \"{{idempotencyKey}}\",\n  \"fromWalletId\": \"{{walletA}}\",\n  \"toWalletId\": \"{{walletB}}\",\n  \"amount\": 50\n}"
@@ -429,7 +497,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"idempotencyKey\": \"same_{{runId}}\",\n  \"fromWalletId\": \"{{walletA}}\",\n  \"toWalletId\": \"{{walletA}}\",\n  \"amount\": 10\n}"
@@ -455,7 +528,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"idempotencyKey\": \"zero_{{runId}}\",\n  \"fromWalletId\": \"{{walletA}}\",\n  \"toWalletId\": \"{{walletB}}\",\n  \"amount\": 0\n}"
@@ -481,7 +559,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"idempotencyKey\": \"neg_{{runId}}\",\n  \"fromWalletId\": \"{{walletA}}\",\n  \"toWalletId\": \"{{walletB}}\",\n  \"amount\": -5\n}"
@@ -507,7 +590,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"idempotencyKey\": \"frac_{{runId}}\",\n  \"fromWalletId\": \"{{walletA}}\",\n  \"toWalletId\": \"{{walletB}}\",\n  \"amount\": 10.5\n}"
@@ -533,7 +621,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"idempotencyKey\": \"missing_{{runId}}\",\n  \"fromWalletId\": \"{{walletA}}\",\n  \"toWalletId\": \"wal_missing_xyz\",\n  \"amount\": 10\n}"
@@ -559,8 +652,16 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "" },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
             "url": "{{baseUrl}}/transfers"
           }
         },
@@ -582,7 +683,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"idempotencyKey\": \"extra_{{runId}}\",\n  \"fromWalletId\": \"{{walletA}}\",\n  \"toWalletId\": \"{{walletB}}\",\n  \"amount\": 1,\n  \"extra\": true\n}"
@@ -608,7 +714,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "text/plain" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\"idempotencyKey\":\"ct_{{runId}}\",\"fromWalletId\":\"{{walletA}}\",\"toWalletId\":\"{{walletB}}\",\"amount\":1}"
@@ -634,7 +745,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"id\": \"{{walletA}}\",\n  \"currency\": \"INR\",\n  \"initialBalance\": 1\n}"
@@ -695,7 +811,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"idempotencyKey\": \"{{idempotencyFailKey}}\",\n  \"fromWalletId\": \"{{walletPoor}}\",\n  \"toWalletId\": \"{{walletA}}\",\n  \"amount\": 999\n}"
@@ -746,7 +867,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"idempotencyKey\": \"{{idempotencyFailKey}}\",\n  \"fromWalletId\": \"{{walletPoor}}\",\n  \"toWalletId\": \"{{walletA}}\",\n  \"amount\": 999\n}"
@@ -801,6 +927,265 @@
             "method": "GET",
             "header": [],
             "url": "{{baseUrl}}/wallets/wal_missing_xyz/balance"
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 — Currencies and cross-currency transfers",
+      "item": [
+        {
+          "name": "X1 List currencies",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('X1 status 200', function () { pm.response.to.have.status(200); });",
+                  "const list = pm.response.json().currencies;",
+                  "pm.test('X1 has many currencies incl. INR USD JPY KWD', function () {",
+                  "  pm.expect(list.length).to.be.above(100);",
+                  "  ['INR','USD','JPY','KWD'].forEach(function (c) { pm.expect(list.map(function (x) { return x.code; })).to.include(c); });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/currencies"
+          }
+        },
+        {
+          "name": "X2 Preview INR to USD",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('X2 status 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('X2 converted', function () {",
+                  "  pm.expect(body.fromAmount).to.eql(10000);",
+                  "  pm.expect(body.toAmount).to.eql(112);",
+                  "  pm.expect(body.toCurrency).to.eql('USD');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/convert?from=INR&to=USD&amount=10000"
+          }
+        },
+        {
+          "name": "X3 Preview unsupported currency",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('X3 status 400', function () { pm.response.to.have.status(400); });",
+                  "pm.test('X3 code', function () { pm.expect(pm.response.json().error.code).to.eql('INVALID_REQUEST'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/convert?from=XYZ&to=USD&amount=100"
+          }
+        },
+        {
+          "name": "X4 Create wallet with unsupported currency",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('X4 status 400', function () { pm.response.to.have.status(400); });",
+                  "pm.test('X4 message', function () { pm.expect(pm.response.json().error.message).to.include('not supported'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/wallets",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currency\": \"XYZ\",\n  \"initialBalance\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "X5 Create USD wallet",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const run = pm.collectionVariables.get('runId') || String(Date.now());",
+                  "pm.collectionVariables.set('walletUsd', 'usd_' + run);",
+                  "pm.collectionVariables.set('fxKey', 'fx_' + run);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('X5 status 201', function () { pm.response.to.have.status(201); });",
+                  "pm.test('X5 currency', function () { pm.expect(pm.response.json().currency).to.eql('USD'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/wallets",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{walletUsd}}\",\n  \"currency\": \"USD\",\n  \"initialBalance\": 0\n}"
+            }
+          }
+        },
+        {
+          "name": "X6 Transfer INR to USD (converted)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('X6 status 201', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "pm.test('X6 converted transfer', function () {",
+                  "  pm.expect(body.status).to.eql('PROCESSED');",
+                  "  pm.expect(body.amount).to.eql(10000);",
+                  "  pm.expect(body.currency).to.eql('INR');",
+                  "  pm.expect(body.toAmount).to.eql(112);",
+                  "  pm.expect(body.toCurrency).to.eql('USD');",
+                  "  pm.expect(body.exchangeRate).to.eql('0.011299435028');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/transfers",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idempotencyKey\": \"{{fxKey}}\",\n  \"fromWalletId\": \"{{walletA}}\",\n  \"toWalletId\": \"{{walletUsd}}\",\n  \"amount\": 10000\n}"
+            }
+          }
+        },
+        {
+          "name": "X7 USD wallet received converted amount",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('X7 status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('X7 balance 112 cents', function () { pm.expect(pm.response.json().balance).to.eql(112); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/wallets/{{walletUsd}}/balance"
+          }
+        },
+        {
+          "name": "X8 Replay cross-currency transfer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('X8 status 201', function () { pm.response.to.have.status(201); });",
+                  "pm.test('X8 replay header', function () { pm.expect(pm.response.headers.get('X-Idempotent-Replay')).to.eql('true'); });",
+                  "pm.test('X8 same conversion', function () { pm.expect(pm.response.json().toAmount).to.eql(112); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/transfers",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idempotencyKey\": \"{{fxKey}}\",\n  \"fromWalletId\": \"{{walletA}}\",\n  \"toWalletId\": \"{{walletUsd}}\",\n  \"amount\": 10000\n}"
+            }
+          }
+        },
+        {
+          "name": "X9 Amount too small to convert",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('X9 status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('X9 code', function () { pm.expect(pm.response.json().error.code).to.eql('AMOUNT_TOO_SMALL'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/transfers",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idempotencyKey\": \"{{fxKey}}_small\",\n  \"fromWalletId\": \"{{walletA}}\",\n  \"toWalletId\": \"{{walletUsd}}\",\n  \"amount\": 1\n}"
+            }
           }
         }
       ]

@@ -48,8 +48,13 @@ func TestCreateTransferValidationTable(t *testing.T) {
 			code: "WALLET_NOT_FOUND",
 		},
 		{
-			name: "currency mismatch",
-			cmd:  service.CreateTransferCommand{IdempotencyKey: "tv-fx", FromWalletID: "tv_a", ToWalletID: "tv_usd", Amount: 1},
+			name: "cross currency converts",
+			cmd:  service.CreateTransferCommand{IdempotencyKey: "tv-fx", FromWalletID: "tv_a", ToWalletID: "tv_usd", Amount: 90},
+			http: 201,
+		},
+		{
+			name: "cross currency too small",
+			cmd:  service.CreateTransferCommand{IdempotencyKey: "tv-fx-small", FromWalletID: "tv_a", ToWalletID: "tv_usd", Amount: 1},
 			http: 422,
 		},
 		{

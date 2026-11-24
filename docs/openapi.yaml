@@ -117,6 +117,52 @@ paths:
                 $ref: "#/components/schemas/FailedTransfer"
         "503":
           $ref: "#/components/responses/Error"
+  /currencies:
+    get:
+      summary: List supported currencies
+      operationId: listCurrencies
+      responses:
+        "200":
+          description: All supported ISO 4217 currencies
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [currencies]
+                properties:
+                  currencies:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        code: {type: string, example: INR}
+                        name: {type: string, example: Indian Rupee}
+                        minorUnits: {type: integer, example: 2, description: Decimal places}
+  /convert:
+    get:
+      summary: Preview a currency conversion (no money moves)
+      operationId: convert
+      parameters:
+        - {name: from, in: query, required: true, schema: {type: string, example: INR}}
+        - {name: to, in: query, required: true, schema: {type: string, example: USD}}
+        - {name: amount, in: query, required: true, schema: {type: integer, format: int64, minimum: 1}, description: Minor units of the source currency}
+      responses:
+        "200":
+          description: Conversion result, rounded down
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  fromCurrency: {type: string}
+                  toCurrency: {type: string}
+                  fromAmount: {type: integer, format: int64}
+                  toAmount: {type: integer, format: int64}
+                  exchangeRate: {type: string, example: "0.011299435028"}
+        "400":
+          $ref: "#/components/responses/Error"
+        "422":
+          $ref: "#/components/responses/Error"
   /transfers/{id}:
     get:
       summary: Read a transfer
@@ -177,13 +223,16 @@ components:
         updatedAt: {type: string, format: date-time}
     Transfer:
       type: object
-      required: [transferId, fromWalletId, toWalletId, amount, currency, status, createdAt, updatedAt]
+      required: [transferId, fromWalletId, toWalletId, amount, currency, toCurrency, status, createdAt, updatedAt]
       properties:
         transferId: {type: string}
         fromWalletId: {type: string}
         toWalletId: {type: string}
-        amount: {type: integer, format: int64}
-        currency: {type: string}
+        amount: {type: integer, format: int64, description: Debited from the sender, in the sender currency}
+        currency: {type: string, description: Sender currency}
+        toAmount: {type: integer, format: int64, description: Credited to the receiver, in the receiver currency}
+        toCurrency: {type: string, description: Receiver currency}
+        exchangeRate: {type: string, description: Receiver units per sender unit used for this transfer}
         status: {type: string, enum: [PROCESSED, FAILED]}
         failureReason: {type: string}
         createdAt: {type: string, format: date-time}
@@ -213,7 +262,8 @@ components:
               walletId: {type: string}
               transferId: {type: string}
               entryType: {type: string, enum: [DEBIT, CREDIT]}
-              amount: {type: integer, format: int64}
+              amount: {type: integer, format: int64, description: In the currency of this wallet}
+              currency: {type: string}
               createdAt: {type: string, format: date-time}
     ErrorEnvelope:
       type: object

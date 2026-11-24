@@ -10,13 +10,16 @@ import (
 	"wallet-transfer-service/internal/domain"
 )
 
-const transferColumns = `id, from_wallet_id, to_wallet_id, amount, currency, status, failure_reason, created_at, updated_at`
+// to_amount and exchange_rate are NULL for a failed attempt that never reached a valid conversion.
+// The domain uses 0 and "" for that case.
+const transferColumns = `id, from_wallet_id, to_wallet_id, amount, currency, COALESCE(to_amount, 0), to_currency, COALESCE(exchange_rate, ''), status, failure_reason, created_at, updated_at`
 
 func scanTransfer(row pgx.Row) (domain.Transfer, error) {
 	var t domain.Transfer
 	var status string
 	if err := row.Scan(
 		&t.ID, &t.FromWalletID, &t.ToWalletID, &t.Amount, &t.Currency,
+		&t.ToAmount, &t.ToCurrency, &t.ExchangeRate,
 		&status, &t.FailureReason, &t.CreatedAt, &t.UpdatedAt,
 	); err != nil {
 		return domain.Transfer{}, err
@@ -29,10 +32,10 @@ func scanTransfer(row pgx.Row) (domain.Transfer, error) {
 
 func (s *Store) InsertPendingTransfer(ctx context.Context, tx pgx.Tx, t *domain.Transfer) error {
 	row := tx.QueryRow(ctx, `
-		INSERT INTO transfers (id, from_wallet_id, to_wallet_id, amount, currency, status)
-		VALUES ($1, $2, $3, $4, $5, 'PENDING')
+		INSERT INTO transfers (id, from_wallet_id, to_wallet_id, amount, currency, to_amount, to_currency, exchange_rate, status)
+		VALUES ($1, $2, $3, $4, $5, NULLIF($6::bigint, 0), $7, NULLIF($8::text, ''), 'PENDING')
 		RETURNING `+transferColumns,
-		t.ID, t.FromWalletID, t.ToWalletID, t.Amount, t.Currency,
+		t.ID, t.FromWalletID, t.ToWalletID, t.Amount, t.Currency, t.ToAmount, t.ToCurrency, t.ExchangeRate,
 	)
 	scanned, err := scanTransfer(row)
 	if err != nil {

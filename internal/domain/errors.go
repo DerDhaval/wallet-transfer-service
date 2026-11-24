@@ -49,8 +49,10 @@ var (
 
 	ErrInsufficientFunds = &Error{Status: 422, Code: "INSUFFICIENT_FUNDS", Message: "Not enough balance in the sending wallet to complete this payment"}
 	ErrWalletNotActive   = &Error{Status: 422, Code: "WALLET_NOT_ACTIVE", Message: "This wallet is not active, so money cannot be sent or received"}
-	ErrCurrencyMismatch  = &Error{Status: 422, Code: "CURRENCY_MISMATCH", Message: "Both wallets must use the same currency to transfer money"}
 	ErrAmountOverflow    = &Error{Status: 422, Code: "AMOUNT_OVERFLOW", Message: "This payment would push the receiving wallet balance past the allowed maximum"}
+
+	ErrCurrencyNotSupported = &Error{Status: 422, Code: "CURRENCY_NOT_SUPPORTED", Message: "This currency is not supported. Use GET /currencies to see supported currencies"}
+	ErrAmountTooSmall       = &Error{Status: 422, Code: "AMOUNT_TOO_SMALL", Message: "This amount is too small to convert into the receiving wallet's currency"}
 
 	ErrUnsupportedMedia = &Error{Status: 415, Code: "UNSUPPORTED_MEDIA_TYPE", Message: "Send the request as JSON with Content-Type: application/json"}
 

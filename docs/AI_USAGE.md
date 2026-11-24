@@ -6,7 +6,7 @@ This document summarizes the use of AI tools during the design, implementation, 
 
 ## 1. Tool Used
 
-* **Cursor / Antigravity** (IDE-integrated coding assistant)
+* **Cursor /composer 2.5** (IDE-integrated coding assistant)
 
 ---
 

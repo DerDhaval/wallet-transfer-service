@@ -63,6 +63,7 @@ Amounts are integer **minor units**.
 | B1 | Transfer more than balance | `422 INSUFFICIENT_FUNDS` + `transfer.status=FAILED` |
 | B2 | Failed transfer does not move money | balances unchanged |
 | B3 | Failed transfer has no ledger impact | history unchanged for that attempt |
+| B4 | Different wallet currencies (INR → USD) | `422 CURRENCY_MISMATCH`, no balance change |
 
 ---
 

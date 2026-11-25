@@ -1,0 +1,229 @@
+openapi: 3.0.3
+info:
+  title: Wallet Transfer Service
+  version: 1.0.0
+  description: |
+    Moves money between wallets. Amounts are integers in minor units.
+    `POST /transfers` is idempotent on `idempotencyKey`.
+servers:
+  - url: http://localhost:8080
+paths:
+  /health:
+    get:
+      summary: Readiness check
+      operationId: health
+      responses:
+        "200":
+          description: Database is reachable
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: {type: string, example: ok}
+        "503":
+          description: Database is not reachable
+  /wallets:
+    post:
+      summary: Create a wallet
+      operationId: createWallet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWalletRequest"
+      responses:
+        "201":
+          description: Wallet created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Wallet"
+        "400":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+  /wallets/{id}/balance:
+    get:
+      summary: Read a wallet balance
+      operationId: getBalance
+      parameters:
+        - $ref: "#/components/parameters/WalletId"
+      responses:
+        "200":
+          description: Current wallet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Wallet"
+        "404":
+          $ref: "#/components/responses/Error"
+  /wallets/{id}/transactions:
+    get:
+      summary: List ledger entries for a wallet
+      operationId: listTransactions
+      parameters:
+        - $ref: "#/components/parameters/WalletId"
+        - name: limit
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+        - name: offset
+          in: query
+          schema: {type: integer, minimum: 0, default: 0}
+      responses:
+        "200":
+          description: Ledger page, newest first
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transactions"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /transfers:
+    post:
+      summary: Create a wallet transfer
+      operationId: createTransfer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTransferRequest"
+      responses:
+        "201":
+          description: Transfer processed. A replay of the same request returns this same body and status, plus X-Idempotent-Replay.
+          headers:
+            X-Idempotent-Replay:
+              schema: {type: string}
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transfer"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+        "422":
+          description: The transfer was recorded as FAILED. Retrying the same key returns this result and does not move money.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FailedTransfer"
+        "503":
+          $ref: "#/components/responses/Error"
+  /transfers/{id}:
+    get:
+      summary: Read a transfer
+      operationId: getTransfer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        "200":
+          description: Transfer, including a recorded failure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transfer"
+        "404":
+          $ref: "#/components/responses/Error"
+components:
+  parameters:
+    WalletId:
+      name: id
+      in: path
+      required: true
+      schema: {type: string}
+  responses:
+    Error:
+      description: Request failed and no new financial rows were committed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+  schemas:
+    CreateWalletRequest:
+      type: object
+      required: [currency, initialBalance]
+      properties:
+        id: {type: string}
+        currency: {type: string, example: INR}
+        initialBalance: {type: integer, format: int64, minimum: 0}
+    CreateTransferRequest:
+      type: object
+      required: [idempotencyKey, fromWalletId, toWalletId, amount]
+      properties:
+        idempotencyKey: {type: string}
+        fromWalletId: {type: string}
+        toWalletId: {type: string}
+        amount: {type: integer, format: int64, minimum: 1, description: Minor units}
+    Wallet:
+      type: object
+      required: [walletId, balance, currency, status, createdAt, updatedAt]
+      properties:
+        walletId: {type: string}
+        balance: {type: integer, format: int64}
+        currency: {type: string}
+        status: {type: string, enum: [ACTIVE, FROZEN, CLOSED]}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+    Transfer:
+      type: object
+      required: [transferId, fromWalletId, toWalletId, amount, currency, status, createdAt, updatedAt]
+      properties:
+        transferId: {type: string}
+        fromWalletId: {type: string}
+        toWalletId: {type: string}
+        amount: {type: integer, format: int64}
+        currency: {type: string}
+        status: {type: string, enum: [PROCESSED, FAILED]}
+        failureReason: {type: string}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+    FailedTransfer:
+      type: object
+      required: [error, transfer]
+      properties:
+        error:
+          $ref: "#/components/schemas/ErrorBody"
+        transfer:
+          $ref: "#/components/schemas/Transfer"
+    Transactions:
+      type: object
+      required: [walletId, transactions, limit, offset]
+      properties:
+        walletId: {type: string}
+        limit: {type: integer}
+        offset: {type: integer}
+        transactions:
+          type: array
+          items:
+            type: object
+            required: [entryId, walletId, transferId, entryType, amount, createdAt]
+            properties:
+              entryId: {type: string}
+              walletId: {type: string}
+              transferId: {type: string}
+              entryType: {type: string, enum: [DEBIT, CREDIT]}
+              amount: {type: integer, format: int64}
+              createdAt: {type: string, format: date-time}
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          $ref: "#/components/schemas/ErrorBody"
+    ErrorBody:
+      type: object
+      required: [code, message]
+      properties:
+        code: {type: string}
+        message: {type: string}

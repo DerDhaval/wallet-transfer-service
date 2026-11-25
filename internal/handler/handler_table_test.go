@@ -24,7 +24,6 @@ func TestHandlerTableDriven(t *testing.T) {
 
 	createWalletHTTP(t, api, "h_w1", "INR", 1_000)
 	createWalletHTTP(t, api, "h_w2", "INR", 0)
-	createWalletHTTP(t, api, "h_usd", "USD", 0)
 
 	cases := []struct {
 		name        string
@@ -108,41 +107,6 @@ func TestHandlerTableDriven(t *testing.T) {
 		{
 			name: "get missing transfer", method: http.MethodGet, path: "/transfers/trf_missing",
 			wantStatus: 404, wantCode: "TRANSFER_NOT_FOUND",
-		},
-		{
-			name: "create wallet unsupported currency", method: http.MethodPost, path: "/wallets",
-			body: `{"id":"h_bad","currency":"XYZ","initialBalance":1}`, contentType: "application/json",
-			wantStatus: 400, wantCode: "INVALID_REQUEST", wantSubstr: "not supported",
-		},
-		{
-			name: "transfer across currencies", method: http.MethodPost, path: "/transfers",
-			body: `{"idempotencyKey":"h-fx","fromWalletId":"h_w1","toWalletId":"h_usd","amount":900}`, contentType: "application/json",
-			wantStatus: 201, wantSubstr: `"toCurrency":"USD"`,
-		},
-		{
-			name: "cross currency amounts", method: http.MethodPost, path: "/transfers",
-			body: `{"idempotencyKey":"h-fx","fromWalletId":"h_w1","toWalletId":"h_usd","amount":900}`, contentType: "application/json",
-			wantStatus: 201, wantSubstr: `"toAmount":10`,
-		},
-		{
-			name: "list currencies", method: http.MethodGet, path: "/currencies",
-			wantStatus: 200, wantSubstr: `"code":"INR"`,
-		},
-		{
-			name: "convert preview", method: http.MethodGet, path: "/convert?from=inr&to=usd&amount=10000",
-			wantStatus: 200, wantSubstr: `"toAmount":112`,
-		},
-		{
-			name: "convert unsupported currency", method: http.MethodGet, path: "/convert?from=XYZ&to=USD&amount=100",
-			wantStatus: 400, wantCode: "INVALID_REQUEST",
-		},
-		{
-			name: "convert bad amount", method: http.MethodGet, path: "/convert?from=INR&to=USD&amount=abc",
-			wantStatus: 400, wantCode: "INVALID_REQUEST",
-		},
-		{
-			name: "convert too small", method: http.MethodGet, path: "/convert?from=VND&to=KWD&amount=1",
-			wantStatus: 422, wantCode: "AMOUNT_TOO_SMALL",
 		},
 	}
 

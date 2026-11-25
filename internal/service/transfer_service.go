@@ -83,21 +83,20 @@ func (s *Service) executeClaimed(ctx context.Context, tx pgx.Tx, cmd CreateTrans
 		ToWalletID:   to.ID,
 		Amount:       cmd.Amount,
 		Currency:     from.Currency,
-		ToCurrency:   to.Currency,
 		Status:       domain.StatusPending,
 	}
 
-	if cause := planTransfer(&transfer, from, to); cause != nil {
+	if cause := transferBusinessError(from, to, cmd.Amount); cause != nil {
 		return s.finish(ctx, tx, cmd.IdempotencyKey, transfer, cause)
 	}
 
 	if err := s.store.InsertPendingTransfer(ctx, tx, &transfer); err != nil {
 		return Result{}, err
 	}
-	if err := s.store.DebitWallet(ctx, tx, from.ID, transfer.Amount); err != nil {
+	if err := s.store.DebitWallet(ctx, tx, from.ID, cmd.Amount); err != nil {
 		return Result{}, err
 	}
-	if err := s.store.CreditWallet(ctx, tx, to.ID, transfer.ToAmount); err != nil {
+	if err := s.store.CreditWallet(ctx, tx, to.ID, cmd.Amount); err != nil {
 		return Result{}, err
 	}
 	if err := s.store.InsertLedgerPair(ctx, tx, transfer); err != nil {
@@ -117,11 +116,8 @@ func (s *Service) executeClaimed(ctx context.Context, tx pgx.Tx, cmd CreateTrans
 		"transfer_id", transfer.ID,
 		"from_wallet_id", from.ID,
 		"to_wallet_id", to.ID,
-		"amount", transfer.Amount,
+		"amount", cmd.Amount,
 		"currency", transfer.Currency,
-		"to_amount", transfer.ToAmount,
-		"to_currency", transfer.ToCurrency,
-		"exchange_rate", transfer.ExchangeRate,
 		"idempotency_key", cmd.IdempotencyKey,
 	)
 	return Result{StatusCode: 201, Body: body}, nil
@@ -143,29 +139,17 @@ func (s *Service) lockWallets(ctx context.Context, tx pgx.Tx, fromID, toID strin
 	return right, left, nil
 }
 
-// planTransfer checks active wallets, converts the amount, and fills t.ToAmount /
-// t.ExchangeRate. Returns the business reason the transfer cannot proceed, or nil.
-func planTransfer(t *domain.Transfer, from, to domain.Wallet) *domain.Error {
-	if from.Status != domain.WalletActive {
+func transferBusinessError(from, to domain.Wallet, amount int64) *domain.Error {
+	switch {
+	case from.Status != domain.WalletActive:
 		return domain.ErrWalletNotActive.WithMessage("Sending wallet " + from.ID + " is not active, so this payment cannot be sent")
-	}
-	if to.Status != domain.WalletActive {
+	case to.Status != domain.WalletActive:
 		return domain.ErrWalletNotActive.WithMessage("Receiving wallet " + to.ID + " is not active, so this payment cannot be received")
-	}
-
-	conversion, err := domain.Convert(from.Currency, to.Currency, t.Amount)
-	if err != nil {
-		if apiErr, ok := domain.AsError(err); ok {
-			return apiErr
-		}
-		return domain.ErrInternal
-	}
-	t.ToAmount, t.ExchangeRate = conversion.ToAmount, conversion.Rate
-
-	if from.Balance < t.Amount {
+	case from.Currency != to.Currency:
+		return domain.ErrCurrencyMismatch.WithMessage("Cannot transfer between " + from.Currency + " and " + to.Currency + ". Both wallets must use the same currency")
+	case from.Balance < amount:
 		return domain.ErrInsufficientFunds.WithMessage("Not enough balance in the sending wallet to complete this payment")
-	}
-	if to.Balance > math.MaxInt64-t.ToAmount {
+	case to.Balance > math.MaxInt64-amount:
 		return domain.ErrAmountOverflow.WithMessage("This payment would push the receiving wallet balance past the allowed maximum")
 	}
 	return nil

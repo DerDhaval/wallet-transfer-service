@@ -1,6 +1,9 @@
 package domain
 
-import "time"
+import (
+	"regexp"
+	"time"
+)
 
 type WalletStatus string
 
@@ -20,6 +23,8 @@ type Wallet struct {
 	UpdatedAt      time.Time
 }
 
+var currencyPattern = regexp.MustCompile(`^[A-Z]{3}$`)
+
 // ValidateNewWallet checks a wallet before it is inserted.
 // emptyID is true when the caller asked the service to generate an id.
 func ValidateNewWallet(id string, currency string, openingBalance int64, emptyID bool) error {
@@ -28,9 +33,8 @@ func ValidateNewWallet(id string, currency string, openingBalance int64, emptyID
 			return err
 		}
 	}
-	if _, ok := LookupCurrency(currency); !ok {
-		return ErrInvalidRequest.WithMessage(
-			"Currency " + currency + " is not supported. Use GET /currencies to see supported currencies")
+	if !currencyPattern.MatchString(currency) {
+		return ErrInvalidRequest.WithMessage("Currency must be a 3-letter uppercase code such as INR or USD")
 	}
 	if openingBalance < 0 {
 		return ErrInvalidAmount.WithMessage("Opening balance cannot be negative")

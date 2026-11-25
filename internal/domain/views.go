@@ -13,9 +13,6 @@ type TransferView struct {
 	ToWalletID    string    `json:"toWalletId"`
 	Amount        int64     `json:"amount"`
 	Currency      string    `json:"currency"`
-	ToAmount      int64     `json:"toAmount,omitempty"`
-	ToCurrency    string    `json:"toCurrency"`
-	ExchangeRate  string    `json:"exchangeRate,omitempty"`
 	Status        string    `json:"status"`
 	FailureReason *string   `json:"failureReason,omitempty"`
 	CreatedAt     time.Time `json:"createdAt"`
@@ -37,7 +34,6 @@ type LedgerView struct {
 	TransferID string    `json:"transferId"`
 	EntryType  string    `json:"entryType"`
 	Amount     int64     `json:"amount"`
-	Currency   string    `json:"currency"`
 	CreatedAt  time.Time `json:"createdAt"`
 }
 
@@ -48,9 +44,6 @@ func ViewTransfer(t Transfer) TransferView {
 		ToWalletID:    t.ToWalletID,
 		Amount:        t.Amount,
 		Currency:      t.Currency,
-		ToAmount:      t.ToAmount,
-		ToCurrency:    t.ToCurrency,
-		ExchangeRate:  t.ExchangeRate,
 		Status:        string(t.Status),
 		FailureReason: t.FailureReason,
 		CreatedAt:     t.CreatedAt.UTC(),
@@ -76,7 +69,6 @@ func ViewLedger(e LedgerEntry) LedgerView {
 		TransferID: e.TransferID,
 		EntryType:  string(e.EntryType),
 		Amount:     e.Amount,
-		Currency:   e.Currency,
 		CreatedAt:  e.CreatedAt.UTC(),
 	}
 }

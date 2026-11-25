@@ -110,9 +110,6 @@ func TestTransferAndLedgerRepository(t *testing.T) {
 					ToWalletID:   "repo_b",
 					Amount:       tc.amount,
 					Currency:     "INR",
-					ToAmount:     tc.amount,
-					ToCurrency:   "INR",
-					ExchangeRate: "1",
 				}
 				if err := store.InsertPendingTransfer(ctx, tx, &transfer); err != nil {
 					return err
@@ -123,7 +120,7 @@ func TestTransferAndLedgerRepository(t *testing.T) {
 				if err := store.DebitWallet(ctx, tx, "repo_a", tc.amount); err != nil {
 					return err
 				}
-				if err := store.CreditWallet(ctx, tx, "repo_b", transfer.ToAmount); err != nil {
+				if err := store.CreditWallet(ctx, tx, "repo_b", tc.amount); err != nil {
 					return err
 				}
 				if err := store.InsertLedgerPair(ctx, tx, transfer); err != nil {

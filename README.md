@@ -59,9 +59,6 @@ A processed transfer responds with `201`:
   "toWalletId": "wallet_2",
   "amount": 100,
   "currency": "INR",
-  "toAmount": 100,
-  "toCurrency": "INR",
-  "exchangeRate": "1",
   "status": "PROCESSED",
   "createdAt": "2026-01-01T00:00:00Z",
   "updatedAt": "2026-01-01T00:00:00Z"
@@ -69,26 +66,6 @@ A processed transfer responds with `201`:
 ```
 
 Sending that request again returns the same body and status, with `X-Idempotent-Replay: true`. `wallet_1` is debited once.
-
-### Different currencies
-
-Wallets can hold any ISO 4217 currency (`GET /currencies`). If the two wallets differ, the service converts the amount and records the rate it used. `amount` and `currency` are what the sender pays. `toAmount` and `toCurrency` are what the receiver gets.
-
-```bash
-# 100.00 INR (10000 paise) from an INR wallet to a USD wallet
-curl -s -X POST localhost:8080/transfers -H 'Content-Type: application/json' \
-  -d '{"idempotencyKey":"fx-1","fromWalletId":"wallet_inr","toWalletId":"wallet_usd","amount":10000}'
-# -> amount 10000 INR, toAmount 112 (USD cents), exchangeRate "0.011299435028"
-
-# Preview without moving money
-curl -s 'localhost:8080/convert?from=INR&to=USD&amount=10000'
-```
-
-How conversion works:
-
-- Amounts stay integers in each currency's smallest unit (JPY has 0 decimals, INR 2, KWD 3).
-- The result is rounded **down**, so a conversion never creates money. If the result rounds to zero, the transfer fails with `AMOUNT_TOO_SMALL`.
-- Rates come from a built-in table (units per 1 USD) in `internal/domain/currency.go`, and a cross rate is computed from it. The rates are **indicative, not live market rates**. Replace the table with a rate feed before real use. Every transfer stores the rate it used, so history does not change when the table is updated.
 
 ## API
 
@@ -99,8 +76,6 @@ How conversion works:
 | `POST` | `/wallets` | Create a wallet and its opening balance. |
 | `GET` | `/wallets/{id}/balance` | Read a balance. |
 | `GET` | `/wallets/{id}/transactions` | Ledger entries, newest first. `limit` (default 20, max 100) and `offset`. |
-| `GET` | `/currencies` | All supported currencies (code, name, decimal places). |
-| `GET` | `/convert?from=INR&to=USD&amount=10000` | Preview a conversion. No money moves. |
 | `GET` | `/health` | Database ping. |
 
 `POST /transfers` body:
@@ -109,7 +84,7 @@ How conversion works:
 |---|---|
 | `idempotencyKey` | Required. 1–255 characters: letters, digits, `.`, `_`, `:`, `-`. |
 | `fromWalletId`, `toWalletId` | Required, different, and must already exist. |
-| `amount` | Integer minor units of the sending wallet's currency, from 1 to 1_000_000_000_000. |
+| `amount` | Integer minor units, from 1 to 1_000_000_000_000. |
 
 ### Status codes
 
@@ -121,7 +96,7 @@ How conversion works:
 | Wallet or transfer does not exist | 404 | `WALLET_NOT_FOUND` or `TRANSFER_NOT_FOUND` |
 | Same key, different body | 409 | `IDEMPOTENCY_CONFLICT` |
 | Wallet id already used | 409 | `WALLET_EXISTS` |
-| Insufficient funds, inactive wallet, unsupported currency, amount too small to convert, balance overflow | 422 | `INSUFFICIENT_FUNDS`, `WALLET_NOT_ACTIVE`, `CURRENCY_NOT_SUPPORTED`, `AMOUNT_TOO_SMALL`, `AMOUNT_OVERFLOW` |
+| Insufficient funds, inactive wallet, currency mismatch, balance overflow | 422 | `INSUFFICIENT_FUNDS`, `WALLET_NOT_ACTIVE`, `CURRENCY_MISMATCH`, `AMOUNT_OVERFLOW` |
 | Lock timeout or deadlock | 503 | `TEMPORARILY_UNAVAILABLE` |
 | Unexpected failure | 500 | `INTERNAL_ERROR` |
 

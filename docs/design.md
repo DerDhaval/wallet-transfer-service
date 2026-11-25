@@ -8,7 +8,7 @@ Assumptions:
 
 - Callers are trusted by the network. Authentication and per-user authorization are out of scope and must sit in front of this service in production.
 - Amounts are integers in minor units (paise, cents). `100` means 100 minor units, not 100.00 in major units. Floating-point money is rejected.
-- A wallet has one currency (any ISO 4217 code in the built-in table). Transfers between wallets of different currencies are converted using a built-in indicative rate table (units per 1 USD). The rates are static and not live market rates; the table is the single place to replace with a rate feed. The rate used is stored on every transfer.
+- A wallet has one currency. Cross-currency conversion is not supported.
 - Wallet creation is a supporting operation so the transfer API can be exercised. Production funding would come from a payment processor; here, `opening_balance` is the funded amount at creation.
 - The transfer API is synchronous. The caller receives the terminal state (`PROCESSED` or `FAILED`) from the same request that starts the transfer.
 - One idempotency key belongs to one logical request. The key is supplied in the JSON body, as required by the assignment.
@@ -35,13 +35,12 @@ Integrity is enforced in the database, not only in Go:
 
 - `wallets.balance >= 0` and `opening_balance >= 0`.
 - `transfers.amount > 0` and `from_wallet_id <> to_wallet_id`.
-- `transfers.to_amount` / `exchange_rate` are required for `PROCESSED` transfers; `to_amount > 0`; same-currency transfers have rate `1` and `to_amount = amount`.
 - `UNIQUE (idempotency_key)`.
 - `UNIQUE (transfer_id, entry_type)` so a transfer cannot have two debits or two credits.
 - Ledger rows cannot be updated or deleted (trigger).
 - Transfer financial columns cannot change. Status can move only `PENDING -> PROCESSED` or `PENDING -> FAILED` (trigger).
 - A transfer can be inserted only as `PENDING`. A deferred constraint trigger re-reads the row at commit and rejects a transaction that would commit `PENDING`.
-- The same deferred trigger requires a `PROCESSED` transfer to have exactly one debit and one credit, the debit equal to `amount` in the source currency and the credit equal to `to_amount` in the destination currency, posted to the source and destination wallets. A `FAILED` transfer must have zero ledger rows.
+- The same deferred trigger requires a `PROCESSED` transfer to have exactly one debit and one credit, each equal to the transfer amount and posted to the source and destination wallets. A `FAILED` transfer must have zero ledger rows.
 - A deferred constraint trigger checks `balance = opening_balance + credits - debits` for every wallet whose balance was inserted or updated.
 - Ledger insert trigger rejects a posting whose wallet, direction, or amount disagrees with the transfer.
 
@@ -58,8 +57,6 @@ Amounts are JSON integers. A decimal such as `10.5` is a `400`.
 | `POST` | `/wallets` | `201` | Create a wallet and its opening balance. |
 | `GET` | `/wallets/{id}/balance` | `200` | Read the current balance. |
 | `GET` | `/wallets/{id}/transactions` | `200` | Ledger history for one wallet (`limit`, `offset`). |
-| `GET` | `/currencies` | `200` | Supported currencies. |
-| `GET` | `/convert` | `200` | Preview a conversion (`from`, `to`, `amount`). |
 | `GET` | `/health` | `200` | Database ping. |
 
 `POST /transfers` request:
@@ -82,16 +79,13 @@ Processed response (`201`):
   "toWalletId": "wallet_2",
   "amount": 100,
   "currency": "INR",
-  "toAmount": 100,
-  "toCurrency": "INR",
-  "exchangeRate": "1",
   "status": "PROCESSED",
   "createdAt": "2026-01-01T00:00:00Z",
   "updatedAt": "2026-01-01T00:00:00Z"
 }
 ```
 
-`amount`/`currency` is what the sender pays; `toAmount`/`toCurrency` is what the receiver gets, converted at `exchangeRate` (a decimal string, receiver units per sender unit). `currency` and timestamps are included so clients can reconcile without another lookup. `failureReason` is present only when the status is `FAILED`.
+`currency` and timestamps are included so clients can reconcile without another lookup. `failureReason` is present only when the status is `FAILED`.
 
 Error body:
 
@@ -121,8 +115,7 @@ Error body:
 | Wallet id already exists | 409 | `WALLET_EXISTS` | n/a |
 | Insufficient funds | 422 | `INSUFFICIENT_FUNDS` | Yes, with the failed transfer |
 | Wallet not `ACTIVE` | 422 | `WALLET_NOT_ACTIVE` | Yes, with the failed transfer |
-| Wallet currency not in the supported table | 422 | `CURRENCY_NOT_SUPPORTED` | Yes, with the failed transfer |
-| Converted amount rounds to zero | 422 | `AMOUNT_TOO_SMALL` | Yes, with the failed transfer |
+| Currency mismatch | 422 | `CURRENCY_MISMATCH` | Yes, with the failed transfer |
 | Balance would overflow `int64` | 422 | `AMOUNT_OVERFLOW` | Yes, with the failed transfer |
 | Lock timeout, deadlock, serialization failure | 503 | `TEMPORARILY_UNAVAILABLE` | No |
 | Any other server or database failure | 500 | `INTERNAL_ERROR` | No |
@@ -141,8 +134,8 @@ Client retry rule: on timeout, `500`, or `503`, send the same key and the same b
    - If it loses, compare `request_hash`. Equal hash: return the stored response. Different hash: `409`.
 4. Lock both wallets with `SELECT … FOR UPDATE` in sorted wallet-id order.
 5. If either wallet is missing, return `404` and roll back (the key insert disappears).
-6. If a wallet is not active, a currency is unsupported, the converted amount rounds to zero, the source balance is too small, or the credit would overflow, insert the transfer as `PENDING`, move it to `FAILED`, store the error response on the idempotency row, and commit. Balances and ledger rows are not written.
-7. Otherwise insert `PENDING`, convert the amount (exact rational arithmetic, rounded down) when the currencies differ, debit the source with `balance = balance - amount` only where `balance >= amount`, credit the destination with `to_amount`, insert the debit and credit, move the transfer to `PROCESSED`, store the `201` body, and commit.
+6. If a wallet is not active, the currencies differ, the source balance is too small, or the credit would overflow, insert the transfer as `PENDING`, move it to `FAILED`, store the error response on the idempotency row, and commit. Balances and ledger rows are not written.
+7. Otherwise insert `PENDING`, debit the source with `balance = balance - amount` only where `balance >= amount`, credit the destination, insert the debit and credit, move the transfer to `PROCESSED`, store the `201` body, and commit.
 8. Deferred triggers run at commit. If they reject the transaction, the database rolls everything back, including the idempotency row.
 
 Request hash is SHA-256 hex of `v1|{fromWalletId}|{toWalletId}|{amount}`. The idempotency key is the lookup, not part of the hash.
@@ -216,7 +209,7 @@ A failed transfer does not change `wallets.balance` and does not insert ledger r
 |---|---|---|
 | Bad JSON, bad amount, same wallet | No transaction | Fix the request. The same key may be reused. |
 | Wallet missing | Rollback, including the idempotency claim | Create the wallet and retry the same key. |
-| Insufficient funds, inactive wallet, unsupported currency, amount too small, overflow | Commit a `FAILED` transfer and the idempotency response. No balance change. No ledger rows. | Treat it as final for this key. Use a new key to try a different attempt. |
+| Insufficient funds, inactive wallet, currency mismatch, overflow | Commit a `FAILED` transfer and the idempotency response. No balance change. No ledger rows. | Treat it as final for this key. Use a new key to try a different attempt. |
 | Statement error, process crash, or the pre-commit hook | Rollback. No transfer, ledger, balance change, or idempotency row. | Retry the same key and body. |
 | Commit succeeded, response lost | Transfer, ledger, balances, and idempotency row are durable. | Retry the same key and body. The stored response is returned and money is not moved again. |
 | Lock timeout or deadlock | Rollback | Retry the same key and body. |
@@ -230,7 +223,7 @@ After every committed transaction:
 
 - A wallet balance is never negative.
 - `balance = opening_balance + sum(credits) - sum(debits)` for every wallet whose balance this transaction wrote. Because transfers only move money between wallets, the sum of all balances stays equal to the sum of all opening balances.
-- A `PROCESSED` transfer has exactly two immutable ledger entries: a debit on the source and a credit on the destination, The debit is in the source currency and the credit is in the destination currency (equal amounts when the currencies match).
+- A `PROCESSED` transfer has exactly two immutable ledger entries: a debit on the source and a credit on the destination, for the same amount.
 - A `FAILED` transfer has no ledger entries and did not change balances.
 - An idempotency key points at most one transfer.
 - Replaying that key does not create a second transfer or a second pair of ledger entries.
@@ -262,8 +255,7 @@ Integration tests start a dedicated Postgres database, apply the real migrations
 - Concurrent identical requests with one key.
 - Concurrent debits that would overdraw the wallet.
 - Opposite transfers (`A -> B` and `B -> A`) that would deadlock if locks were taken in request order.
-- Missing wallets, bad amounts, same wallet, inactive wallet, unsupported currency.
-- Cross-currency transfers: conversion maths (rounding never creates money), amount too small, replay, and a concurrent cross-currency race that keeps the ledger balanced.
+- Missing wallets, bad amounts, same wallet, inactive wallet, currency mismatch.
 - A forced error after the writes and before commit, followed by a successful retry of the same key.
 - Database triggers: pending cannot commit, processed transfers cannot change status, ledger rows cannot change, and a balance cannot go negative or drift from the ledger.
 

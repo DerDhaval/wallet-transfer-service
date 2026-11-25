@@ -12,8 +12,6 @@ import (
 func New(h *handler.Handler) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", h.Health)
-	mux.HandleFunc("GET /currencies", h.Currencies)
-	mux.HandleFunc("GET /convert", h.Convert)
 	mux.HandleFunc("POST /wallets", h.CreateWallet)
 	mux.HandleFunc("GET /wallets/{id}/balance", h.GetBalance)
 	mux.HandleFunc("GET /wallets/{id}/transactions", h.ListTransactions)

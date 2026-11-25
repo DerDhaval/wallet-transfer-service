@@ -96,15 +96,8 @@ func AssertLedgerCount(t *testing.T, pool *pgxpool.Pool, want int64) {
 	}
 }
 
-// AssertLedgerPair checks the debit/credit pair for a same-currency transfer.
+// AssertLedgerPair checks the debit/credit pair for one transfer.
 func AssertLedgerPair(t *testing.T, pool *pgxpool.Pool, transferID, from, to string, amount int64) {
-	t.Helper()
-	AssertLedgerAmounts(t, pool, transferID, from, amount, to, amount)
-}
-
-// AssertLedgerAmounts checks the debit (in the source currency) and the credit
-// (in the destination currency) for one transfer.
-func AssertLedgerAmounts(t *testing.T, pool *pgxpool.Pool, transferID, from string, debit int64, to string, credit int64) {
 	t.Helper()
 	rows, err := pool.Query(context.Background(), `
 		SELECT wallet_id, entry_type, amount
@@ -133,8 +126,8 @@ func AssertLedgerAmounts(t *testing.T, pool *pgxpool.Pool, transferID, from stri
 		t.Fatal(err)
 	}
 	if len(got) != 2 ||
-		got[0].kind != "CREDIT" || got[0].wallet != to || got[0].amount != credit ||
-		got[1].kind != "DEBIT" || got[1].wallet != from || got[1].amount != debit {
+		got[0].kind != "CREDIT" || got[0].wallet != to || got[0].amount != amount ||
+		got[1].kind != "DEBIT" || got[1].wallet != from || got[1].amount != amount {
 		t.Fatalf("ledger pair = %+v", got)
 	}
 }

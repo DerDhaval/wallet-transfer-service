@@ -25,7 +25,6 @@ Exact chat turns varied; these are the prompts / intents that drove the solution
 7. Improve user-facing API `message` text for all error / payment cases.
 8. Code cleanup: remove duplication, keep the same features, senior-style simplicity.
 9. Audit the finished repo against the assignment text (this check).
-10. Support transfers between wallets of different currencies: add all ISO 4217 currencies, a converter with exact rounding (never creates money), store the rate on each transfer, and add `/currencies` and `/convert`.
 
 ## 4. Session transcript
 

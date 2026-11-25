@@ -13,18 +13,12 @@ const (
 	StatusFailed    TransferStatus = "FAILED"
 )
 
-// Transfer debits Amount (in Currency) from the source wallet and credits ToAmount
-// (in ToCurrency) to the destination wallet. ExchangeRate is 1 Currency = ExchangeRate ToCurrency.
-// For same-currency transfers ToAmount equals Amount and ExchangeRate is "1".
 type Transfer struct {
 	ID            string
 	FromWalletID  string
 	ToWalletID    string
 	Amount        int64
 	Currency      string
-	ToAmount      int64
-	ToCurrency    string
-	ExchangeRate  string
 	Status        TransferStatus
 	FailureReason *string
 	CreatedAt     time.Time
